@@ -10,6 +10,7 @@ import { BotTab } from './BotTab.jsx';
 import { allBots, botFor } from '../engine/bot.js';
 import { startReporting, stopReporting } from '../engine/report.js';
 import { hubStream } from '../engine/stream.js';
+import { engineLease } from '../engine/lease.js';
 import { CHAIN_LABEL } from './helpers.js';
 import { Leaderboard } from './Leaderboard.jsx';
 import { Review } from './Review.jsx';
@@ -26,6 +27,8 @@ export function Dashboard({ me, info, vault, strategies, onMe, onStrategies, onL
 }) {
   const [tab, setTab] = useState<Tab>('bot');
   const [guideSection, setGuideSection] = useState<GuideSection | null>(null);
+  const [, bumpLease] = useState(0);
+  useEffect(() => engineLease.on(() => bumpLease((n) => n + 1)), []);
   const active = strategies.filter((s) => s.active);
   // "what's this?" links anywhere on the site open the Guide at their section.
   useEffect(() => {
@@ -66,6 +69,12 @@ export function Dashboard({ me, info, vault, strategies, onMe, onStrategies, onL
   const status = active.length ? active.map((s) => `${CHAIN_LABEL[s.chain]}: ${s.strategy.name} on`).join(' · ') : strategies.length ? 'all bots off' : 'no bot yet';
   return (
     <div class={`dash-shell${tab === 'terminal' || tab === 'review' ? ' wide' : ''}`}>
+      {engineLease.state === 'standby' && (
+        <div class="notice warn lease">
+          <b>Your bots are running in another TradeWarz tab.</b> This tab shows the same positions but will not trade or sell. Close the other tab, or{' '}
+          <button class="btn sm" onClick={() => engineLease.requestTakeover()}>Run here</button>
+        </div>
+      )}
       <div class="dash-tabs" role="tablist">
         {(['bot', 'terminal', 'board', 'wallet', 'account', 'guide', ...(me.owner ? (['review'] as const) : [])] as Tab[]).map((t) => (
           <button key={t} role="tab" aria-selected={tab === t} class={`tab${tab === t ? ' active' : ''}`} onClick={() => setTab(t)}>{TAB_LABEL[t]}</button>

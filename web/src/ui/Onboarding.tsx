@@ -105,7 +105,7 @@ export function Welcome({ info, onSignedIn }: { info: HubInfo; onSignedIn: (me: 
   return (
     <section class="screen landing">
       <div class="hero welcome">
-        <img class="welcome-mark" src="/avatar.png" alt="" width="104" height="104" />
+        <img class="welcome-mark" src="/avatar.png?v=pixel5" alt="" width="152" height="152" />
         <p class="eyebrow">Token-gated · non-custodial</p>
         <h1 class="wordmark">TradeWar<span class="warz">z</span></h1>
         <p class="tagline">Build a trading bot in plain language.</p>

@@ -72,7 +72,7 @@ export function App() {
       <header class="topbar">
         <div class="in">
           <a class="brand" href="/">
-            <span class="mark" aria-hidden="true"><img src="/avatar.png" alt="" width="52" height="52" /></span>
+            <span class="mark" aria-hidden="true"><img src="/avatar.png?v=pixel5" alt="" width="76" height="76" /></span>
             <span class="wordmark">TradeWar<span class="warz">z</span></span>
           </a>
           <span class="spacer" />

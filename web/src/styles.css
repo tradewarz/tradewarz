@@ -330,6 +330,7 @@ table.launches td.via { max-width: 120px; overflow: hidden; text-overflow: ellip
 .vtag.score.reject { background: var(--loss-soft); color: var(--loss); }
 .vtag.judged { background: var(--accent-soft); color: var(--accent); cursor: pointer; }
 .vtag.bundle { background: var(--loss-soft); color: var(--loss); }
+.notice.lease { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
 /* ---- the Guide tab ------------------------------------------------------------------------- */
 .guide { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 28px; align-items: start; }
 .guide-nav { position: sticky; top: 12px; display: grid; gap: 4px; font-size: 13.5px; }
@@ -425,17 +426,17 @@ table.launches tbody tr.gone td { color: var(--muted); }
   pointer-events: none;
 }
 .topbar .in {
-  max-width: 1180px; margin: 0 auto; padding: 0.85rem 1.1rem;
-  display: flex; align-items: center; gap: 0.75rem 1rem; flex-wrap: wrap; position: relative;
+  max-width: 1180px; margin: 0 auto; padding: 1.15rem 1.25rem;
+  display: flex; align-items: center; gap: 0.85rem 1.1rem; flex-wrap: wrap; position: relative;
 }
 .brand {
-  display: flex; align-items: center; gap: 0.75rem; text-decoration: none; color: var(--ink);
-  font-weight: 900; font-size: 1.05rem; letter-spacing: 0.08em;
+  display: flex; align-items: center; gap: 0.9rem; text-decoration: none; color: var(--ink);
+  font-weight: 900; font-size: 1.2rem; letter-spacing: 0.08em;
 }
-.brand .wordmark { font-weight: 900; letter-spacing: 0.08em; }
+.brand .wordmark { font-weight: 900; letter-spacing: 0.08em; font-size: 1.25rem; }
 .brand .warz, .wordmark .warz { color: var(--accent); }
 .brand .mark {
-  width: 52px; height: 52px; border-radius: 0; background: var(--surface-2);
+  width: 76px; height: 76px; border-radius: 0; background: var(--surface-2);
   display: inline-grid; place-items: center; overflow: hidden; flex: none;
   border: 1px solid rgba(232,234,237,0.25);
   box-shadow: 3px 3px 0 rgba(196,30,58,0.55), 0 0 0 3px rgba(196,30,58,0.18);
@@ -534,26 +535,27 @@ footer {
 .screen.landing { max-width: 640px; margin: 0 auto; display: grid; gap: 0; padding: 0; }
 .hero.welcome {
   position: relative; isolation: isolate; text-align: center;
-  padding: 3rem 1.25rem 2.25rem; min-height: 58vh;
+  padding: 3.75rem 1.25rem 2.75rem; min-height: 72vh;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   border-radius: 0; overflow: hidden; border: none; background: transparent; box-shadow: none;
 }
 .hero.welcome::before {
-  content: ""; position: absolute; inset: -6% -3%; z-index: -1;
+  content: ""; position: absolute; inset: -10% -4%; z-index: -1;
   background:
-    linear-gradient(180deg, rgba(10,11,13,0.42) 0%, rgba(10,11,13,0.72) 45%, var(--bg) 100%),
-    linear-gradient(90deg, rgba(10,11,13,0.65) 0%, rgba(10,11,13,0.2) 50%, rgba(10,11,13,0.65) 100%),
-    url("/banner.png") center / cover no-repeat;
-  filter: saturate(0.95) contrast(1.1); opacity: 1; transform: scale(1.04);
+    linear-gradient(180deg, rgba(10,11,13,0.22) 0%, rgba(10,11,13,0.48) 42%, var(--bg) 100%),
+    linear-gradient(90deg, rgba(10,11,13,0.4) 0%, rgba(10,11,13,0.08) 50%, rgba(10,11,13,0.4) 100%),
+    url("/banner.png") center top / cover no-repeat;
+  filter: saturate(1.05) contrast(1.12); opacity: 1; transform: scale(1.06);
+  background-size: cover; min-height: 110%;
 }
 .hero.welcome::after {
   content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
   background:
-    radial-gradient(ellipse 75% 60% at 50% 28%, rgba(196,30,58,0.2), transparent 72%),
-    repeating-linear-gradient(-18deg, transparent, transparent 40px, rgba(196,30,58,0.045) 40px, rgba(196,30,58,0.045) 42px);
+    radial-gradient(ellipse 85% 70% at 50% 30%, rgba(196,30,58,0.28), transparent 74%),
+    repeating-linear-gradient(-18deg, transparent, transparent 40px, rgba(196,30,58,0.055) 40px, rgba(196,30,58,0.055) 42px);
 }
 .welcome-mark {
-  width: 104px; height: 104px; margin: 0 auto 1.35rem; object-fit: cover; display: block;
+  width: 152px; height: 152px; margin: 0 auto 1.5rem; object-fit: cover; display: block;
   border: 2px solid rgba(232,234,237,0.25);
   box-shadow: 0 0 0 5px rgba(196,30,58,0.28), 5px 7px 0 rgba(0,0,0,0.55);
   clip-path: polygon(3% 0%, 97% 2%, 100% 8%, 98% 92%, 100% 100%, 5% 98%, 0% 94%, 2% 6%);
@@ -565,7 +567,7 @@ footer {
 }
 .hero.welcome h1.wordmark,
 .hero.welcome .wordmark {
-  font-size: clamp(2.35rem, 9vw, 3.6rem); font-weight: 900; letter-spacing: 0.06em;
+  font-size: clamp(2.55rem, 9.5vw, 3.9rem); font-weight: 900; letter-spacing: 0.06em;
   line-height: 1; margin: 0 0 0.75rem; max-width: none;
 }
 .hero.welcome .tagline {
@@ -747,11 +749,13 @@ table.launches tbody tr.sel { background: rgba(196, 30, 58, 0.12); }
   .term-grid, .term-grid.tuning { grid-template-columns: 1fr; }
 }
 @media (max-width: 560px) {
-  .topbar .in { padding: 0.7rem 0.75rem; }
-  .brand .mark { width: 48px; height: 48px; }
+  .topbar .in { padding: 0.95rem 0.85rem; }
+  .brand .mark { width: 64px; height: 64px; }
+  .brand { font-size: 1.1rem; }
+  .brand .wordmark { font-size: 1.12rem; }
   main { padding: 1rem 0.75rem 5rem; }
-  .welcome-mark { width: 88px; height: 88px; }
-  .hero.welcome { padding: 2.25rem 1rem; min-height: 50vh; }
+  .welcome-mark { width: 132px; height: 132px; }
+  .hero.welcome { padding: 2.75rem 1rem; min-height: 62vh; }
   .hero.welcome .btnrow { flex-direction: column; width: 100%; }
   .hero.welcome .btnrow .btn { width: 100%; }
 }

@@ -13,6 +13,7 @@ import { GUARDRAILS, buyWithinPoolLimit, dailyBreakerTripped, evaluate, preset, 
 import { adapters, baseAdapter, bscAdapter, robinhoodAdapter, solanaAdapter, type ChainAdapter } from './adapters.js';
 import { CHAINS, type NativeSymbol } from '@tradewarz/shared';
 import { botStore, utcDay, type Cooldown, type DayLedger, type Position } from './store.js';
+import { engineLease } from './lease.js';
 import { hubStream } from './stream.js';
 
 export type Verdict = 'buy' | 'skip' | 'hold' | 'exit' | 'error' | 'info';
@@ -94,6 +95,9 @@ export class Bot {
   private wakeLock: WakeLockSentinel | null = null;
   private ticks = 0;
   running = false;
+  /** The switch as the person set it; `running` is that AND this tab holding the engine lease. */
+  private wantRunning = false;
+  private reloadTimer: number | null = null;
 
   constructor(readonly a: ChainAdapter) {}
   get chain(): Chain { return this.a.chain; }
@@ -101,7 +105,7 @@ export class Bot {
   private same(a: string, b: string): boolean { return this.key(a) === this.key(b); }
 
   onChange(cb: () => void): () => void { this.listeners.add(cb); return () => this.listeners.delete(cb); }
-  private changed(): void { for (const l of this.listeners) l(); }
+  private changed(): void { for (const l of this.listeners) l(); if (engineLease.active) engineLease.announceChange(); }
 
   private primed = false;
   /**
@@ -117,15 +121,49 @@ export class Bot {
     this.ledger.clear(); for (const l of ledger) if (l.chain === this.chain) this.ledger.set(l.day, l);
     this.cooldowns.clear(); for (const c of cooldowns) if (c.until > Date.now() && c.key.startsWith(`${this.chain}:`)) this.cooldowns.set(c.key, c);
     hubStream.start();
+    engineLease.start();
     this.off = hubStream.on((m) => { void this.onMessage(m); });
+    // Viewers re-read the shared store when the trading tab says something changed (and every few seconds regardless);
+    // a tab that inherits the lease reloads once and then runs the bot the person switched on.
+    engineLease.onChange(() => { if (!engineLease.active) this.scheduleReload(); });
+    engineLease.on(() => {
+      if (engineLease.active) { void this.reload().then(() => { if (this.wantRunning && this.strategy && !this.running) void this.start(this.strategy, this.strategyId ?? '', ''); }); }
+      else if (this.running) { this.running = false; this.note('info', '', 'bot', ['another TradeWarz tab took over trading; this tab now only shows your positions']); }
+      this.changed();
+    });
+    if (!engineLease.active) this.scheduleReload();
     for (const p of this.openPositions()) void hubStream.watch(this.chain, p.token, BigInt(p.tokens));
     void this.refreshBalance(true);
     this.changed();
   }
 
+  /** Re-read positions, ledger and cooldowns from the shared store (another tab may have changed them). */
+  async reload(): Promise<void> {
+    const [positions, ledger, cooldowns] = await Promise.all([botStore.positions(), botStore.ledger(), botStore.cooldowns()]);
+    this.positions.clear(); for (const p of positions) if (p.chain === this.chain) this.positions.set(p.id, p);
+    this.ledger.clear(); for (const l of ledger) if (l.chain === this.chain) this.ledger.set(l.day, l);
+    this.cooldowns.clear(); for (const c of cooldowns) if (c.until > Date.now() && c.key.startsWith(`${this.chain}:`)) this.cooldowns.set(c.key, c);
+    this.changed();
+  }
+  private scheduleReload(): void {
+    if (this.reloadTimer !== null) return;
+    this.reloadTimer = window.setTimeout(() => { this.reloadTimer = null; void this.reload(); }, 1_000);
+  }
+  /** Is this the tab that trades? Everything that signs or writes asks first. */
+  private mustBeActive(): void {
+    if (!engineLease.active) throw new Error('your bots are running in another TradeWarz tab; this tab only shows them. Close the other tab, or use "Run here".');
+  }
+
   async start(strategy: Strategy, strategyId: string, rpcUrl: string): Promise<void> {
-    await this.prime(rpcUrl);
+    if (rpcUrl) await this.prime(rpcUrl);
     this.strategy = strategy; this.strategyId = strategyId;
+    this.wantRunning = true;
+    if (!engineLease.active) {
+      // Another tab holds the engine: remember the wish, trade the moment the lease arrives here.
+      this.setOnce('lease', 'standby', () => this.note('info', '', 'bot', [`${strategy.name} is running in your other TradeWarz tab; this tab only shows positions`]));
+      this.changed();
+      return;
+    }
     if (!this.running) {
       this.running = true;
       void this.requestWakeLock();
@@ -139,6 +177,7 @@ export class Bot {
   }
 
   stop(): void {
+    this.wantRunning = false;
     if (!this.running) return;
     this.running = false;
     document.removeEventListener('visibilitychange', this.onVisibility);
@@ -153,6 +192,7 @@ export class Bot {
    * hand-held: priced and shown, sold only when you press Sell.
    */
   async buyNow(target: Candidate, sizeNative: number, opts: { slippagePct: number; manage: boolean }): Promise<Position> {
+    this.mustBeActive();
     if (!(sizeNative > 0)) throw new Error('enter an amount');
     const size = this.a.parse(sizeNative);
     const key = this.key(target.address);
@@ -198,6 +238,7 @@ export class Bot {
 
   /** Hand a position to the bot's exits, or take it back. */
   async setManaged(positionId: string, managed: boolean): Promise<void> {
+    this.mustBeActive();
     const pos = this.positions.get(positionId);
     if (!pos) throw new Error('no such position');
     pos.managed = managed;
@@ -211,6 +252,7 @@ export class Bot {
    * positions list, and by the bot once a token has had no market for DEAD_AFTER_MS.
    */
   async writeOff(positionId: string, reason: string): Promise<void> {
+    this.mustBeActive();
     const pos = this.positions.get(positionId);
     if (!pos || pos.status !== 'open') throw new Error('no such open position');
     const held = BigInt(pos.tokens);
@@ -273,6 +315,7 @@ export class Bot {
   }
 
   private async onMessage(m: StreamMessage): Promise<void> {
+    if (!engineLease.active) { if (m.kind === 'tick') this.changed(); return; }
     // Prices flow whether or not the rules are on: a hand-held position still wants its PnL.
     if (m.kind === 'mark' && m.chain === this.chain) { await this.onMark(m); return; }
     if (m.kind === 'tick') {
@@ -454,6 +497,7 @@ export class Bot {
   }
 
   async sellNow(positionId: string): Promise<void> {
+    this.mustBeActive();
     const pos = this.positions.get(positionId);
     if (!pos || pos.status !== 'open') throw new Error('no such open position');
     await this.sell(pos, BigInt(pos.tokens), 'sold by hand', undefined, true);

@@ -66,7 +66,7 @@ export function Terminal({ strategies, onSaved }: { strategies: StrategyRecord[]
   const [saving, setSaving] = useState(false);
   // Buying by hand: the dialog's target, and the paste-an-address form.
   const [trade, setTrade] = useState<Candidate | null>(null);
-  const [addrForm, setAddrForm] = useState(false);
+  const [addrForm, setAddrForm] = useState(true);
   const [addrChain, setAddrChain] = useState<Chain>('solana');
   const [addr, setAddr] = useState('');
   const [resolving, setResolving] = useState(false);
