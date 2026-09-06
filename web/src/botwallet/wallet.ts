@@ -59,17 +59,55 @@ export async function nativeBalance(chain: Chain, address: string, rpcUrl: strin
   return Number(formatEther(await client.getBalance({ address: address as `0x${string}` })));
 }
 
-/** Withdraw from the bot wallet to `to` (the page only ever passes a linked gate wallet). "all" leaves a fee reserve. */
+const SOL_RESERVE_LAMPORTS = 0.002 * LAMPORTS_PER_SOL; // fee + rent headroom
+const EVM_RESERVE_WEI = parseEther('0.0002');
+
+/** What a transfer out costs right now, and what is left to send after it. */
+interface Ceiling { balance: bigint; gas: bigint; reserve: bigint; max: bigint; gasLimit: bigint }
+
+async function evmCeiling(chain: Exclude<Chain, 'solana'>, to: string, rpcUrl: string): Promise<Ceiling> {
+  if (!keys) throw new Error('Unlock the bot wallet first.');
+  const pub = createPublicClient({ chain: evmChain(chain, rpcUrl), transport: http(rpcUrl) });
+  const balance = await pub.getBalance({ address: keys.evm.address });
+  // Ask the chain what a transfer costs here: on Arbitrum-style chains (Robinhood Chain) a plain send
+  // needs well over the classic 21,000 gas because the L1 data fee is charged as extra gas units.
+  const gasPrice = await pub.getGasPrice();
+  let gasLimit = 21_000n;
+  try { gasLimit = await pub.estimateGas({ account: keys.evm.address, to: to as `0x${string}`, value: 1n }); } catch { /* fall back to the classic figure */ }
+  gasLimit = (gasLimit * 13n) / 10n; // headroom: unused gas is refunded
+  const gas = (gasLimit * gasPrice * 15n) / 10n; // and a little for a price move while the tx is in flight
+  const max = balance - gas - EVM_RESERVE_WEI;
+  return { balance, gas, reserve: EVM_RESERVE_WEI, max: max > 0n ? max : 0n, gasLimit };
+}
+
+/** The most that can leave the bot wallet right now, in whole coins - what the "All" button fills in. */
+export async function maxWithdrawable(chain: Chain, to: string, rpcUrl: string): Promise<number> {
+  if (!keys) throw new Error('Unlock the bot wallet first.');
+  if (chain === 'solana') {
+    const balance = await new Connection(rpcUrl, 'confirmed').getBalance(keys.solana.publicKey, 'confirmed');
+    return Math.max(0, balance - SOL_RESERVE_LAMPORTS) / LAMPORTS_PER_SOL;
+  }
+  const c = await evmCeiling(chain, to, rpcUrl);
+  return Number(formatEther(c.max));
+}
+
+/**
+ * Withdraw from the bot wallet to `to` (the page only ever passes a linked gate wallet). "all", or an
+ * amount at or above the ceiling, sends everything that can leave after gas and a small reserve.
+ */
 export async function withdraw(chain: Chain, to: string, amount: number | 'all', rpcUrl: string): Promise<{ hash: string; amount: number }> {
   if (!keys) throw new Error('Unlock the bot wallet first.');
   if (chain === 'solana') {
     const conn = new Connection(rpcUrl, 'confirmed');
     const from = keys.solana.publicKey;
     const balance = await conn.getBalance(from, 'confirmed');
-    const reserve = 0.002 * LAMPORTS_PER_SOL; // fee + rent headroom
-    const lamports = amount === 'all' ? balance - reserve : Math.round(amount * LAMPORTS_PER_SOL);
-    if (lamports <= 0) throw new Error('Nothing to withdraw after the fee reserve.');
-    if (lamports > balance - reserve) throw new Error(`At most ${((balance - reserve) / LAMPORTS_PER_SOL).toFixed(4)} SOL can leave (a small fee reserve stays).`);
+    const reserve = SOL_RESERVE_LAMPORTS;
+    const max = balance - reserve;
+    const asked = amount === 'all' ? max : Math.round(amount * LAMPORTS_PER_SOL);
+    // Asking for the ceiling (the prefilled "All" figure, or a hair over it) means "everything".
+    const lamports = asked >= max - 1000 ? max : asked;
+    if (lamports <= 0) throw new Error(`Nothing to withdraw after the fee reserve: the wallet holds ${(balance / LAMPORTS_PER_SOL).toFixed(4)} SOL.`);
+    if (lamports > max) throw new Error(`At most ${(max / LAMPORTS_PER_SOL).toFixed(4)} SOL can leave (a small fee reserve stays).`);
     const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash('confirmed');
     const tx = new Transaction({ feePayer: from, blockhash, lastValidBlockHeight }).add(SystemProgram.transfer({ fromPubkey: from, toPubkey: new PublicKey(to), lamports }));
     tx.sign(keys.solana);
@@ -82,14 +120,15 @@ export async function withdraw(chain: Chain, to: string, amount: number | 'all',
   const symbol = NATIVE_SYMBOL[chain];
   const pub = createPublicClient({ chain: vc, transport: http(rpcUrl) });
   const wallet = createWalletClient({ account: keys.evm, chain: vc, transport: http(rpcUrl) });
-  const balance = await pub.getBalance({ address: keys.evm.address });
-  const gasPrice = await pub.getGasPrice();
-  const gasWei = 21_000n * gasPrice * 2n;
-  const reserve = parseEther('0.0005');
-  const value = amount === 'all' ? balance - gasWei - reserve : parseEther(String(amount));
-  if (value <= 0n) throw new Error('Nothing to withdraw after gas.');
-  if (value > balance - gasWei) throw new Error(`At most ${formatEther(balance - gasWei - reserve)} ${symbol} can leave (gas stays behind).`);
-  const hash = await wallet.sendTransaction({ to: to as `0x${string}`, value, gas: 21_000n });
+  const c = await evmCeiling(chain, to, rpcUrl);
+  const fmt = (x: bigint) => Number(formatEther(x)).toFixed(6);
+  if (c.balance === 0n) throw new Error(`The bot wallet holds no ${symbol} on ${CHAIN_NAME[chain]}.`);
+  const asked = amount === 'all' ? c.max : parseEther(String(amount));
+  // Asking for the ceiling (the prefilled "All" figure, or a hair over it) means "everything".
+  const value = asked >= c.max - c.max / 1000n ? c.max : asked;
+  if (value <= 0n) throw new Error(`Nothing to withdraw after gas: the wallet holds ${fmt(c.balance)} ${symbol} and the transfer needs about ${fmt(c.gas)} ${symbol} of gas plus a ${fmt(c.reserve)} ${symbol} reserve.`);
+  if (value > c.max) throw new Error(`At most ${fmt(c.max)} ${symbol} can leave (about ${fmt(c.gas)} ${symbol} of gas stays behind).`);
+  const hash = await wallet.sendTransaction({ to: to as `0x${string}`, value, gas: c.gasLimit });
   const rc = await pub.waitForTransactionReceipt({ hash });
   if (rc.status !== 'success') throw new Error('The transaction reverted on-chain.');
   return { hash, amount: Number(formatEther(value)) };

@@ -6,7 +6,7 @@ import { CHAINS, isEvmChain, type Chain, type HubInfo, type SessionUser } from '
 import { describeError } from '../api.js';
 import { registerBotWallets } from '../botwallet/register.js';
 import type { VaultBlob } from '../botwallet/vault.js';
-import { botAddress, explorerAddress, explorerTx, lock, nativeBalance, withdraw } from '../botwallet/wallet.js';
+import { botAddress, explorerAddress, explorerTx, lock, maxWithdrawable, nativeBalance, withdraw } from '../botwallet/wallet.js';
 import { depositFromMetaMask } from '../wallets/metamask.js';
 import { depositSolFromPhantom } from '../wallets/phantom.js';
 import { CHAIN_LABEL, NATIVE, WALLET_APP, copyText, fmtAmount, short } from './helpers.js';
@@ -61,11 +61,21 @@ function ChainPanel({ chain, me, info, onChange }: { chain: Chain; me: SessionUs
     } catch (e) { toast(describeError(e), 'bad'); } finally { setBusy(null); }
   };
 
-  const doWithdraw = async (everything = false) => {
+  /** The All button: work out what can leave after gas and the reserve, and put that number in the box. */
+  const fillAll = async () => {
     if (!gate) return toast(`Link your ${WALLET_APP[chain]} wallet first (Account tab): withdrawals only go to your own linked wallet.`, 'bad');
-    const raw = everything ? 'all' : wd.trim().toLowerCase();
-    const amount: number | 'all' = raw === '' || raw === 'all' || raw === 'max' ? 'all' : Number(raw);
-    if (amount !== 'all' && !(amount > 0)) return toast(`Enter an amount of ${NATIVE[chain]}, or leave it empty for all.`, 'bad');
+    setBusy('max');
+    try {
+      const max = await maxWithdrawable(chain, gate.address, rpc);
+      if (max <= 0) { toast(`Nothing can leave right now: the wallet's ${NATIVE[chain]} would all go to gas and the fee reserve.`, 'bad'); return; }
+      setWd(max.toFixed(chain === 'solana' ? 6 : 8).replace(/0+$/, '').replace(/\.$/, ''));
+    } catch (e) { toast(describeError(e), 'bad'); } finally { setBusy(null); }
+  };
+  const doWithdraw = async () => {
+    if (!gate) return toast(`Link your ${WALLET_APP[chain]} wallet first (Account tab): withdrawals only go to your own linked wallet.`, 'bad');
+    const raw = wd.trim().toLowerCase();
+    const amount: number | 'all' = raw === 'all' || raw === 'max' ? 'all' : Number(raw);
+    if (amount !== 'all' && !(amount > 0)) return toast(`Enter an amount of ${NATIVE[chain]}, or press All to fill in everything that can leave.`, 'bad');
     if (!confirm(`Withdraw ${amount === 'all' ? 'everything (minus a small fee reserve)' : `${amount} ${NATIVE[chain]}`} from the bot wallet to ${short(gate.address)}? The bot wallet signs this now.`)) return;
     setBusy('withdraw');
     try {
@@ -83,7 +93,7 @@ function ChainPanel({ chain, me, info, onChange }: { chain: Chain; me: SessionUs
         <div class="row"><div class="k">Balance</div><div class="v">{fmtAmount(balance, NATIVE[chain])} <button class="btn sm" style="margin-left:6px" onClick={refresh}>Refresh</button></div></div>
         <div class="row"><div class="k">Your {WALLET_APP[chain]}</div><div class="v">{gate ? <><span class="addr">{short(gate.address, 6)}</span> <span class="muted small">· {fmtAmount(gateBalance, NATIVE[chain])}</span></> : <span class="muted">not linked yet — link it in the Account tab to deposit and withdraw</span>}</div></div>
         <div class="row"><div class="k">Deposit</div><div class="v inline"><input class="input" inputMode="decimal" placeholder={`${NATIVE[chain]} to send from ${WALLET_APP[chain]}`} value={dep} onInput={(e) => setDep((e.target as HTMLInputElement).value)} /><button class="btn" disabled={!gate || busy !== null} onClick={deposit}>{busy === 'deposit' ? 'Waiting…' : 'Deposit'}</button></div></div>
-        <div class="row"><div class="k">Withdraw</div><div class="v inline"><input class="input" inputMode="decimal" placeholder={`${NATIVE[chain]} to send back`} value={wd} onInput={(e) => setWd((e.target as HTMLInputElement).value)} /><button class="btn" disabled={!gate || busy !== null} onClick={() => void doWithdraw()}>{busy === 'withdraw' ? 'Sending…' : 'Withdraw'}</button><button class="btn" disabled={!gate || busy !== null || !balance} title="send everything back to your wallet, leaving only a small fee reserve" onClick={() => void doWithdraw(true)}>All</button></div></div>
+        <div class="row"><div class="k">Withdraw</div><div class="v inline"><input class="input" inputMode="decimal" placeholder={`${NATIVE[chain]} to send back`} value={wd} onInput={(e) => setWd((e.target as HTMLInputElement).value)} /><button class="btn sm" disabled={!gate || busy !== null || !balance} title="fill in everything that can leave after gas and a small fee reserve" onClick={() => void fillAll()}>{busy === 'max' ? '…' : 'All'}</button><button class="btn" disabled={!gate || busy !== null} onClick={() => void doWithdraw()}>{busy === 'withdraw' ? 'Sending…' : 'Withdraw'}</button></div></div>
         {!isThisOne && busy !== 'register' && <div class="row"><div class="k"></div><div class="v"><button class="btn sm" onClick={register}>Register with the hub</button> <span class="muted small">Only registered wallets are scored on the leaderboard.</span></div></div>}
       </div>
     </section>
