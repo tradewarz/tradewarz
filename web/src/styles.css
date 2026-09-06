@@ -331,6 +331,9 @@ table.launches td.via { max-width: 120px; overflow: hidden; text-overflow: ellip
 .vtag.judged { background: var(--accent-soft); color: var(--accent); cursor: pointer; }
 .vtag.bundle { background: var(--loss-soft); color: var(--loss); }
 .notice.lease { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+.head-link { color: var(--ink-2); text-decoration: none; font-size: 14px; padding: 6px 10px; border-radius: 8px; }
+.head-link:hover { color: var(--accent); background: var(--surface-2); }
+.guide-note { max-width: 560px; }
 /* ---- the Guide tab ------------------------------------------------------------------------- */
 .guide { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 28px; align-items: start; }
 .guide-nav { position: sticky; top: 12px; display: grid; gap: 4px; font-size: 13.5px; }

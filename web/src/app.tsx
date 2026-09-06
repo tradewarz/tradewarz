@@ -7,6 +7,7 @@ import { isUnlocked, lock, onWalletChange } from './botwallet/wallet.js';
 import { Boundary } from './ui/Boundary.jsx';
 import { Dashboard } from './ui/Dashboard.jsx';
 import { CreateWallet, PickBot, RestoreWallet, SaveWords, UnlockScreen, Welcome } from './ui/Onboarding.jsx';
+import { Guide, guideFromHash, openGuide, type GuideSection } from './ui/Guide.jsx';
 import { toast } from './ui/toast.js';
 
 /**
@@ -23,6 +24,19 @@ export function App() {
   const [strategies, setStrategies] = useState<StrategyRecord[] | null>(null);
   const [skippedPick, setSkippedPick] = useState(false);
   const [registering, setRegistering] = useState(false);
+  // The Guide for people who have not signed in: opened from the header, the welcome screen, or a #guide link.
+  const [guide, setGuide] = useState<GuideSection | null>(() => guideFromHash());
+  useEffect(() => {
+    const onHash = () => setGuide(guideFromHash());
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
+  const showGuide = (section: GuideSection = 'what') => {
+    if (me) { openGuide(section); return; } // signed in: the dashboard has a Guide tab
+    setGuide(section);
+    history.replaceState(null, '', section === 'what' ? '#guide' : `#guide/${section}`);
+  };
+  const closeGuide = () => { setGuide(null); history.replaceState(null, '', window.location.pathname); };
 
   useEffect(() => {
     (async () => {
@@ -57,7 +71,8 @@ export function App() {
   let body;
   if (hub === 'loading' || (me && vault === undefined)) body = <p class="muted">Connecting…</p>;
   else if (hub === 'offline') body = <div class="notice bad">The hub is not answering. If you run it yourself: <code>npm run dev:hub</code>, then reload.</div>;
-  else if (!me) body = <Welcome info={info!} onSignedIn={setMe} />;
+  else if (!me && guide) body = <Guide section={guide} onBack={closeGuide} />;
+  else if (!me) body = <Welcome info={info!} onSignedIn={setMe} onGuide={() => showGuide('what')} />;
   else if (vault === null) body = restoring ? <RestoreWallet onDone={(v) => { setVault(v); setRestoring(false); }} onBack={() => setRestoring(false)} /> : <CreateWallet onDone={setVault} onRestore={() => setRestoring(true)} />;
   else if (!unlocked) body = <UnlockScreen vault={vault!} onDone={() => setUnlocked(true)} onForget={forgetWallet} />;
   else if (!vault!.backedUp) body = <SaveWords vault={vault!} onDone={setVault} />;
@@ -76,6 +91,7 @@ export function App() {
             <span class="wordmark">TradeWar<span class="warz">z</span></span>
           </a>
           <span class="spacer" />
+          <a class="head-link" href="#guide" onClick={(e) => { e.preventDefault(); showGuide('what'); }}>Guide</a>
           {info && <span class={`pill gate-pill ${info.gateMode === 'open' ? 'warn' : me?.gate.passed ? 'ok' : ''}`} title={me?.gate.reason ?? ''}>{info.gateMode === 'open' ? 'gate open · setup' : <><span>{info.gateRequired.toLocaleString('en-US')}</span> TRADEWARZ to enter</>}</span>}
           {me && <button class="btn sm signout" onClick={signOut}>Sign out</button>}
         </div>

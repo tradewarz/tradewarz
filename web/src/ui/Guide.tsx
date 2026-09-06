@@ -27,7 +27,17 @@ export type GuideSection = (typeof GUIDE_SECTIONS)[number][0];
 /** Ask the dashboard to open the Guide at a section. Any component can call this. */
 export const openGuide = (section: GuideSection): void => { window.dispatchEvent(new CustomEvent('tw:guide', { detail: section })); };
 
-export function Guide({ section }: { section: GuideSection | null }) {
+export const REPO_URL = 'https://github.com/tradewarz/tradewarz';
+
+/** The section named in the address bar: #guide or #guide/<section>. */
+export function guideFromHash(hash = window.location.hash): GuideSection | 'what' | null {
+  const m = /^#guide(?:\/([a-z-]+))?$/.exec(hash);
+  if (!m) return null;
+  const s = m[1] as GuideSection | undefined;
+  return s && GUIDE_SECTIONS.some(([id]) => id === s) ? s : 'what';
+}
+
+export function Guide({ section, onBack }: { section: GuideSection | null; onBack?: () => void }) {
   useEffect(() => {
     if (!section) return;
     const el = document.getElementById(`g-${section}`);
@@ -37,6 +47,7 @@ export function Guide({ section }: { section: GuideSection | null }) {
   return (
     <div class="guide">
       <nav class="guide-nav">
+        {onBack && <button class="btn sm" style="margin-bottom:10px" onClick={onBack}>← Back to sign in</button>}
         <div class="k">On this page</div>
         {GUIDE_SECTIONS.map(([id, title]) => <a key={id} href={`#g-${id}`} onClick={(e) => { e.preventDefault(); document.getElementById(`g-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}>{title}</a>)}
       </nav>
@@ -120,6 +131,7 @@ export function Guide({ section }: { section: GuideSection | null }) {
 
         <h2 id="g-open">Open source</h2>
         <p>The code is public so that none of this has to be taken on faith: the page and its wallet code under the MIT license, the hub under the Business Source License (readable and auditable by anyone). The scoring and leaderboard rules on this page are the same constants the code enforces — this page reads them from the code, so it cannot say one thing while the bot does another.</p>
+        <p><a class="btn sm" href={REPO_URL} target="_blank" rel="noopener noreferrer">Read the code on GitHub</a></p>
       </article>
     </div>
   );
