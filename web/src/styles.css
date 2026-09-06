@@ -330,6 +330,11 @@ table.launches td.via { max-width: 120px; overflow: hidden; text-overflow: ellip
 .vtag.score.reject { background: var(--loss-soft); color: var(--loss); }
 .vtag.judged { background: var(--accent-soft); color: var(--accent); cursor: pointer; }
 .vtag.bundle { background: var(--loss-soft); color: var(--loss); }
+table.launches th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+table.launches th.sortable:hover { color: var(--accent); }
+table.launches th.sortable.on { color: var(--accent); }
+table.launches th .arrow { font-size: 9px; }
+.input.views { max-width: 150px; }
 .notice.lease { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
 .public-home .dash-shell.public { margin-top: 18px; }
 .gate-screen .rows { margin-top: 12px; }
@@ -767,4 +772,35 @@ table.launches tbody tr.sel { background: rgba(196, 30, 58, 0.12); }
 }
 @media (prefers-reduced-motion: reduce) {
   .sticker, .gate-pill, .pill.gate-pill { transform: none; }
+}
+
+/* ---- phones: the dashboard and the Terminal ------------------------------------------------ */
+@media (max-width: 720px) {
+  .dash-tabs { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .dash-tabs::-webkit-scrollbar { display: none; }
+  .dash-tabs .tab { padding: 10px 10px; font-size: 14px; white-space: nowrap; }
+  .dash-tabs .statusline { display: none; }
+  .term-top { gap: 6px 8px; }
+  .term-top .feedtext { display: none; }
+  .term-bar { padding: 8px; gap: 6px; }
+  .term-bar .input.sm.search { flex: 1 1 100%; min-width: 0; }
+  .term-bar .segmented.sm { flex-wrap: wrap; }
+  .term-bar.addr .input.sm.mono { flex: 1 1 100%; min-width: 0 !important; }
+  .term-bar.addr .muted.small { display: none; }
+  .stats.flex > div { flex: 1 1 42%; }
+  table.launches { font-size: 12px; }
+  table.launches th.lp, table.launches td.lp { display: none; }
+  table.launches td.tok .muted.small { display: none; }
+  table.launches td.verdict .vtext { display: inline-block; max-width: 46vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
+  .tablewrap { max-height: min(60vh, 700px); }
+  .drawer { width: 100vw; }
+  .drawer .btnrow.wrap .btn { padding: 6px 8px; font-size: 12.5px; }
+  .alerts-pop { min-width: 0; width: min(92vw, 360px); }
+  .term-side { order: 2; }
+  .guide-body { font-size: 14.5px; }
+  .facts { grid-template-columns: 1fr; }
+  .facts dt { margin-top: 6px; }
+  .research .btnrow.wrap .btn, .ops .btnrow .btn { font-size: 12px; }
+  .row .v.inline { flex-wrap: wrap; }
+  .row .v.inline .input { flex: 1 1 100%; }
 }

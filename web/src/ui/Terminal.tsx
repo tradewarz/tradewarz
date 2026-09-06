@@ -18,6 +18,7 @@ import { toast } from './toast.js';
 import { TradeDialog, stubCandidate } from './TradeDialog.jsx';
 import { alert as fireAlert, alertSettings, enableNotifications, notificationsAllowed, notificationsSupported, onAlertSettings, setAlertSettings, unlockSound } from './alerts.js';
 import { openGuide } from './Guide.jsx';
+import { DEFAULT_VIEW, SORT_LABEL, deleteView, loadCurrentView, saveView, savedViews, sortCandidates, storeCurrentView, type SortDir, type SortKey, type TerminalView } from './views.js';
 import { isWatched, toggleWatch, watchlist, type Watched } from './watchlist.js';
 
 type Filter = 'all' | 'pass' | 'acted' | 'watching' | 'bundled';
@@ -51,10 +52,22 @@ function progressText(c: Candidate): string {
 const devShare = (c: Candidate): number | null => (c.pons ? c.pons.devSharePct : c.pump ? c.pump.devSharePct : null);
 
 export function Terminal({ strategies, onSaved, readOnly = false, onSignIn }: { strategies: StrategyRecord[]; onSaved: (r: StrategyRecord) => void; readOnly?: boolean; onSignIn?: () => void }) {
-  const [chainPick, setChainPick] = useState<ChainPick>('all');
-  const [filter, setFilter] = useState<Filter>('all');
-  const [source, setSource] = useState<'all' | CandidateSource>('all');
-  const [q, setQ] = useState('');
+  const [view0] = useState<TerminalView>(() => (readOnly ? DEFAULT_VIEW : loadCurrentView()));
+  const [chainPick, setChainPick] = useState<ChainPick>(view0.chain);
+  const [filter, setFilter] = useState<Filter>(view0.filter);
+  const [source, setSource] = useState<'all' | CandidateSource>(view0.source as 'all' | CandidateSource);
+  const [q, setQ] = useState(view0.q);
+  const [sort, setSort] = useState<SortKey>(view0.sort);
+  const [dir, setDir] = useState<SortDir>(view0.dir);
+  const [views, setViews] = useState(savedViews);
+  const currentView = (): TerminalView => ({ chain: chainPick, filter, source, q, sort, dir });
+  useEffect(() => { if (!readOnly) storeCurrentView(currentView()); }, [chainPick, filter, source, q, sort, dir]);
+  const applyView = (v: TerminalView) => { setChainPick(v.chain); setFilter(v.filter); setSource(v.source as 'all' | CandidateSource); setQ(v.q); setSort(v.sort); setDir(v.dir); setSel(null); };
+  /** Click a column: sort by it, click again to flip. */
+  const sortBy = (k: SortKey) => { if (sort === k) setDir(dir === 'desc' ? 'asc' : 'desc'); else { setSort(k); setDir('desc'); } };
+  const Th = ({ k, label, cls = '', title }: { k: SortKey; label: string; cls?: string; title?: string }) => (
+    <th class={`${cls} sortable${sort === k ? ' on' : ''}`} title={title ?? `sort by ${SORT_LABEL[k]}`} onClick={() => sortBy(k)}>{label}{sort === k ? <span class="arrow">{dir === 'desc' ? ' ▼' : ' ▲'}</span> : null}</th>
+  );
   const [sel, setSel] = useState<string | null>(null);
   const [, bump] = useState(0);
   const snapshot = (): Record<Chain, BotState> => Object.fromEntries(CHAINS.map((c) => [c, bots[c].state()])) as Record<Chain, BotState>;
@@ -124,7 +137,7 @@ export function Terminal({ strategies, onSaved, readOnly = false, onSignIn }: { 
   const decisions: Array<Decision & { chain: Chain }> = CHAINS.flatMap((c) => states[c].decisions.map((d) => ({ ...d, chain: c }))).sort((a, b) => b.at - a.at);
   const held = new Set(open.map((p) => keyOf({ chain: p.chain, address: p.token })));
   const bought = new Set([...closed.map((p) => keyOf({ chain: p.chain, address: p.token })), ...decisions.filter((d) => d.verdict === 'buy').map((d) => keyOf({ chain: d.chain, address: d.token }))]);
-  const rows = all.map((c) => ({ c, v: verdictFor(c, strategyFor(c.chain), held, bought) })).sort((a, b) => (b.c.createdAt ?? b.c.updatedAt) - (a.c.createdAt ?? a.c.updatedAt));
+  const rows = sortCandidates(all.map((c) => ({ c, v: verdictFor(c, strategyFor(c.chain), held, bought) })), sort, dir);
   const needle = q.trim().toLowerCase();
   const sources = [...new Set(all.map((c) => c.source))] as CandidateSource[];
   const watched = watchlist().filter((w) => chainPick === 'all' || w.chain === chainPick);
@@ -194,7 +207,7 @@ export function Terminal({ strategies, onSaved, readOnly = false, onSignIn }: { 
     }
   };
   const showChainCol = chainPick === 'all';
-  const today = CHAINS.filter((c) => strategies.some((s) => s.chain === c) || states[c].open.length || states[c].realizedToday !== 0n);
+  const today = readOnly ? [] : CHAINS.filter((c) => strategies.some((s) => s.chain === c) || states[c].open.length || states[c].realizedToday !== 0n);
 
   return (
     <div class="terminal">
@@ -217,7 +230,7 @@ export function Terminal({ strategies, onSaved, readOnly = false, onSignIn }: { 
         <div><div class="k">last hour</div><div class="v">{lastHour}</div></div>
         <div><div class="k">on a curve</div><div class="v">{onCurve}</div></div>
         <div><div class="k">pass now</div><div class={`v ${passing ? 'gain' : ''}`}>{passing}</div></div>
-        <div><div class="k">open</div><div class="v">{open.length}</div></div>
+        {!readOnly && <div><div class="k">open</div><div class="v">{open.length}</div></div>}
         {today.map((c) => { const st = states[c]; return <div key={c}><div class="k">today · {NATIVE_SYMBOL[c]}{c === 'base' ? ' (Base)' : ''}</div><div class={`v ${st.realizedToday > 0n ? 'gain' : st.realizedToday < 0n ? 'loss' : ''}`}>{st.realizedToday >= 0n ? '+' : ''}{native(c, st.realizedToday, c === 'solana' ? 3 : 4)}</div></div>; })}
       </div>
 
@@ -231,6 +244,22 @@ export function Terminal({ strategies, onSaved, readOnly = false, onSignIn }: { 
               {sources.map((s) => <option key={s} value={s}>{SOURCE_LABEL[s] ?? s}</option>)}
             </select>
             <input class="input sm search" placeholder="symbol, name or address" value={q} onInput={(e) => setQ((e.target as HTMLInputElement).value)} />
+            {!readOnly && (
+              <select class="input sm views" value="" title="saved views: chain, filter, source, search and sort" onChange={(e) => {
+                const v = (e.target as HTMLSelectElement).value;
+                if (v === '__save') { const name = prompt('Name this view (chain, filter, source, search and sort are saved):', '')?.trim(); if (name) { setViews(saveView(name, currentView())); toast(`View "${name}" saved`); } }
+                else if (v.startsWith('__del:')) { const name = v.slice(6); if (confirm(`Delete the view "${name}"?`)) setViews(deleteView(name)); }
+                else if (v === '__reset') applyView(DEFAULT_VIEW);
+                else { const s = views.find((x) => x.name === v); if (s) applyView(s); }
+                (e.target as HTMLSelectElement).value = '';
+              }}>
+                <option value="">views…</option>
+                {views.map((s) => <option key={s.name} value={s.name}>{s.name}</option>)}
+                <option value="__save">save current view…</option>
+                <option value="__reset">reset to default</option>
+                {views.map((s) => <option key={`del-${s.name}`} value={`__del:${s.name}`}>delete "{s.name}"</option>)}
+              </select>
+            )}
             <span class="spacer" />
             <span class="muted small">{readOnly ? 'judged by the Balanced preset — sign in to set your own rules' : tuning && tuneRecord ? `judged by your unsaved changes to ${tuneRecord.strategy.name}` : chainPick === 'all' ? 'each row judged by its chain’s bot' : recordFor(chainPick) ? `judged by ${recordFor(chainPick)!.strategy.name}${recordFor(chainPick)!.active ? '' : ' (off)'}` : 'add a bot for this chain to see verdicts'}</span>
             {!readOnly && !tuning && (chainPick === 'all'
@@ -251,9 +280,9 @@ export function Terminal({ strategies, onSaved, readOnly = false, onSignIn }: { 
             <table class="launches">
               <thead>
                 <tr>
-                  <th title="star to keep it in Watching">★</th><th>age</th>{showChainCol && <th>chain</th>}<th>token</th><th>via</th><th>verdict</th>
-                  <th class="n">liquidity</th><th class="n">mcap</th><th class="n">curve</th><th class="n">dev</th><th title="other wallets that bought in the launch block">bundle</th>
-                  <th class="n">5m Δ</th><th class="n">vol 5m</th><th class="n">b/s 5m</th><th class="n" title="the 0–100 listing score for coins that came through CoinGecko / CoinMarketCap; see the Guide">score</th><th>socials</th>
+                  <th title="star to keep it in Watching">★</th><Th k="age" label="age" title="sort by age (newest or oldest first)" />{showChainCol && <th>chain</th>}<th>token</th><th class="lp">via</th><th>verdict</th>
+                  <Th k="liquidity" label="liquidity" cls="n" /><Th k="mcap" label="mcap" cls="n lp" /><Th k="curve" label="curve" cls="n lp" /><Th k="dev" label="dev" cls="n lp" /><Th k="bundle" label="bundle" title="other wallets that bought in the launch block · click to sort" />
+                  <Th k="chg5m" label="5m Δ" cls="n" /><Th k="vol5m" label="vol 5m" cls="n lp" /><Th k="bs5m" label="b/s 5m" cls="n lp" /><Th k="score" label="score" cls="n lp" title="the 0–100 listing score for coins that came through CoinGecko / CoinMarketCap · click to sort" /><th class="lp">socials</th>
                 </tr>
               </thead>
               <tbody>
@@ -281,18 +310,18 @@ export function Terminal({ strategies, onSaved, readOnly = false, onSignIn }: { 
                       <td class="age">{ageText(c)}</td>
                       {showChainCol && <td><span class={`chip ${c.chain}`}>{CHAIN_SHORT[c.chain]}</span></td>}
                       <td class="tok"><b>{c.symbol || short(c.address, 4)}</b><span class="muted small"> {c.name.length > 24 ? c.name.slice(0, 23) + '…' : c.name}</span></td>
-                      <td class="via muted small">{SOURCE_LABEL[c.source as CandidateSource] ?? c.source}</td>
+                      <td class="via muted small lp">{SOURCE_LABEL[c.source as CandidateSource] ?? c.source}</td>
                       <td class={`verdict ${v.kind}`}><span class="vtag">{v.kind === 'skip' ? 'no' : v.kind === 'pass' ? 'PASS' : v.kind === 'wait' ? 'wait' : v.kind === 'held' ? 'HELD' : v.kind === 'bought' ? 'traded' : '·'}</span> <span class="vtext">{v.text}</span></td>
                       <td class="n">{usd(c.liquidityUsd)}</td>
-                      <td class="n">{usd(c.marketCapUsd)}</td>
-                      <td class="n">{progressText(c)}</td>
-                      <td class={`n${dev !== null && devMax !== null && dev > devMax ? ' warn' : ''}`}>{dev === null ? '—' : `${dev.toFixed(1)}%`}</td>
+                      <td class="n lp">{usd(c.marketCapUsd)}</td>
+                      <td class="n lp">{progressText(c)}</td>
+                      <td class={`n lp${dev !== null && devMax !== null && dev > devMax ? ' warn' : ''}`}>{dev === null ? '—' : `${dev.toFixed(1)}%`}</td>
                       <td><BundleChip c={c} limit={s?.advanced.maxBundlePct ?? null} /></td>
                       <td class={`n ${(c.priceChangePct.m5 ?? 0) > 0 ? 'gain' : (c.priceChangePct.m5 ?? 0) < 0 ? 'loss' : ''}`}>{pct(c.priceChangePct.m5)}</td>
-                      <td class="n">{usd(c.volumeUsd.m5)}</td>
-                      <td class="n">{t5 ? `${t5.buys}/${t5.sells}` : '—'}</td>
-                      <td class="n">{li ? <span class={`vtag score ${li.verdict.toLowerCase()}`} title={li.reasons.join('; ')}>{li.score}</span> : '—'}</td>
-                      <td>{c.hasSocials ? 'yes' : '—'}</td>
+                      <td class="n lp">{usd(c.volumeUsd.m5)}</td>
+                      <td class="n lp">{t5 ? `${t5.buys}/${t5.sells}` : '—'}</td>
+                      <td class="n lp">{li ? <span class={`vtag score ${li.verdict.toLowerCase()}`} title={li.reasons.join('; ')}>{li.score}</span> : '—'}</td>
+                      <td class="lp">{c.hasSocials ? 'yes' : '—'}</td>
                     </tr>
                   );
                 })}
