@@ -343,6 +343,7 @@ table.launches td.via { max-width: 120px; overflow: hidden; text-overflow: ellip
 .guide-body { max-width: 860px; font-size: 15px; line-height: 1.6; }
 .guide-body h2 { margin: 30px 0 8px; font-size: 20px; scroll-margin-top: 14px; }
 .guide-body h2:first-child { margin-top: 0; }
+.guide-body h3 { margin: 22px 0 6px; font-size: 16px; scroll-margin-top: 14px; }
 .guide-body p { margin: 0 0 12px; }
 .guide-body dl.facts dt { font-weight: 600; }
 .guide-body .notice { margin: 8px 0 14px; }

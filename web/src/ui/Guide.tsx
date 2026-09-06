@@ -86,6 +86,17 @@ export function Guide({ section, onBack }: { section: GuideSection | null; onBac
           <dt>socials</dt><dd>Whether the token declares a website or socials.</dd>
         </dl>
         <p>The filter buttons: <b>All</b>, <b>Passing</b> (PASS and wait), <b>Traded</b> (held or sold), <b>★ Watching</b> (your starred coins, kept even after the hub stops streaming them), <b>Bundled</b>. "Buy by address" opens the buy dialog for any token you paste. The "alerts" button turns on a tone and desktop notifications for passes while a bot is off, buys and sells, bundles on coins you hold or watch, and errors.</p>
+        <h3 id="g-drawer">The drawer</h3>
+        <p>Clicking a row opens the drawer: the verdict with every failed rule spelled out, and every fact the hub has — age, source, liquidity, market cap, price, volume, buys and sells, safety, the launch facts, the listing score. <b>Buy…</b> opens the buy dialog; nothing is sent until you confirm there. <b>☆ Watch</b> stars it.</p>
+        <p>The row of links opens the same token in different places, and each answers a different question:</p>
+        <dl class="facts">
+          <dt>pons · pump.fun</dt><dd>The launchpad's own page — where the coin launched, with its chart, holders, comments and the creator's profile. The friendliest view, and the one to start with.</dd>
+          <dt>DexScreener</dt><dd>The chart and the pool once the coin trades on a DEX.</dd>
+          <dt>Explorer</dt><dd>The <i>token contract</i> on the chain's block explorer: every transfer, how many holders, how the supply is spread. "What is this token doing on-chain."</dd>
+          <dt>Deployer · Creator</dt><dd>The <i>wallet that launched it</i>: what else it has launched, which wallets it funded right before the launch (often the bundle), whether it has been selling. "Who is behind this."</dd>
+          <dt>Curve</dt><dd>The <i>bonding-curve contract</i> — the pons vault that holds the ETH and the tokens while the launch is still on the curve: every buy and sell event, how much ETH is really in it, the moment it is swept into a pool. "Where is the money."</dd>
+          <dt>CoinGecko · CoinMarketCap</dt><dd>The catalogue page for a coin that arrived through a listing.</dd>
+        </dl>
 
         <h2 id="g-panels">Recently listed vs New listings</h2>
         <p>The two panels under the table come from different worlds.</p>
