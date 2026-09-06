@@ -12,7 +12,7 @@ import { allBots, bots, type BotState, type Decision } from '../engine/bot.js';
 import { hubStream } from '../engine/stream.js';
 import { RulesForm, checkRules } from './Builder.jsx';
 import { CHAIN_LABEL, CHAIN_SHORT, copyText, short } from './helpers.js';
-import { dexscreenerUrl, explorerAddressUrl, explorerTokenUrl } from './links.js';
+import { dexscreenerUrl, explorerAddressUrl, explorerTokenUrl, ponsUrl, pumpFunUrl } from './links.js';
 import { DecisionRow, OpenPositions, ago, native } from './Positions.jsx';
 import { toast } from './toast.js';
 import { TradeDialog, stubCandidate } from './TradeDialog.jsx';
@@ -546,9 +546,10 @@ function Drawer({ c, v, onClose, onBuy, watched, onToggleWatch }: { c: Candidate
       <div class="btnrow wrap">
         <a class="btn sm" href={dexscreenerUrl(c.chain, c.address)} target="_blank" rel="noopener">DexScreener</a>
         <a class="btn sm" href={explorerTokenUrl(c.chain, c.address)} target="_blank" rel="noopener">Explorer</a>
+        {p && <a class="btn sm" href={ponsUrl(c.address)} target="_blank" rel="noopener">pons</a>}
         {p && <a class="btn sm" href={explorerAddressUrl(c.chain, p.deployer)} target="_blank" rel="noopener">Deployer</a>}
         {p && <a class="btn sm" href={explorerAddressUrl(c.chain, p.curve)} target="_blank" rel="noopener">Curve</a>}
-        {q && <a class="btn sm" href={`https://pump.fun/coin/${c.address}`} target="_blank" rel="noopener">pump.fun</a>}
+        {q && <a class="btn sm" href={pumpFunUrl(c.address)} target="_blank" rel="noopener">pump.fun</a>}
         {q && q.creator && <a class="btn sm" href={explorerAddressUrl(c.chain, q.creator)} target="_blank" rel="noopener">Creator</a>}
         {li?.urls.coingecko && <a class="btn sm" href={li.urls.coingecko} target="_blank" rel="noopener">CoinGecko</a>}
         {li?.urls.coinmarketcap && <a class="btn sm" href={li.urls.coinmarketcap} target="_blank" rel="noopener">CoinMarketCap</a>}
