@@ -9,6 +9,7 @@ import { CHAIN_LABEL } from './helpers.js';
 import { explorerTxUrl, dexscreenerUrl } from './links.js';
 import { toast } from './toast.js';
 import { OpsPanel } from './Ops.jsx';
+import { ResearchPanel } from './Research.jsx';
 
 interface ReviewTrade {
   symbol: string; token: string; openedAt: number; closedAt: number;
@@ -66,6 +67,7 @@ export function Review({ chains }: { chains: Chain[] }) {
   return (
     <div class="stack">
       <OpsPanel />
+      <ResearchPanel weeks={data.weeks} />
       <div class="card">
         <h2>Review {data.live && <span class="pill warn">week still running</span>}</h2>
         <p class="lede">

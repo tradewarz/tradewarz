@@ -26,16 +26,19 @@ function remember(hashes: Set<string>): void {
   try { localStorage.setItem(SENT_KEY, JSON.stringify([...hashes].slice(-2000))); } catch { /* private mode: we re-report, which is free */ }
 }
 
-/** Every transaction this browser's bot has made and not yet reported, by chain. */
-async function pending(): Promise<Map<Chain, string[]>> {
+export interface ReportMeta { strategyId: string | null; manual: boolean }
+
+/** Every transaction this browser's bot has made and not yet reported, by chain, with which rules (or a hand buy) sent it. */
+async function pending(): Promise<Map<Chain, { hashes: string[]; meta: Record<string, ReportMeta> }>> {
   const already = sent();
-  const out = new Map<Chain, string[]>();
+  const out = new Map<Chain, { hashes: string[]; meta: Record<string, ReportMeta> }>();
   for (const p of await botStore.positions()) {
     const hashes = [p.entryTx, ...p.exits.map((x) => x.tx)].filter((h): h is string => !!h && !already.has(h));
     if (!hashes.length) continue;
-    const list = out.get(p.chain) ?? [];
-    for (const h of hashes) if (!list.includes(h)) list.push(h);
-    out.set(p.chain, list);
+    const entry = out.get(p.chain) ?? { hashes: [], meta: {} };
+    const m: ReportMeta = { strategyId: p.strategyId === 'manual' || !p.strategyId ? null : p.strategyId, manual: !!p.manual };
+    for (const h of hashes) { if (!entry.hashes.includes(h)) entry.hashes.push(h); entry.meta[h] = m; }
+    out.set(p.chain, entry);
   }
   return out;
 }
@@ -48,11 +51,11 @@ export async function reportOnce(): Promise<number> {
     const byChain = await pending();
     if (!byChain.size) return 0;
     const done = sent();
-    for (const [chain, all] of byChain) {
+    for (const [chain, { hashes: all, meta }] of byChain) {
       for (let i = 0; i < all.length; i += 50) {
         const batch = all.slice(i, i + 50);
         try {
-          await api.reportTrades(chain, batch);
+          await api.reportTrades(chain, batch, Object.fromEntries(batch.map((h) => [h, meta[h]!])));
           for (const h of batch) done.add(h);
           reported += batch.length;
         } catch {

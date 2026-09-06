@@ -45,7 +45,8 @@ export const api = {
 
   // the contest
   board: (chain: Chain, week = 'current') => call<BoardView>('GET', `/api/board?${q(chain, week)}`),
-  reportTrades: (chain: Chain, txs: string[]) => call<{ ok: true; queued: number }>('POST', '/api/trades/report', { chain, txs }),
+  reportTrades: (chain: Chain, txs: string[], meta?: Record<string, { strategyId: string | null; manual: boolean }>) => call<{ ok: true; queued: number }>('POST', '/api/trades/report', { chain, txs, meta }),
+  research: (chain: Chain | 'all', week: string) => call<import('./ui/Research.js').ResearchView>('GET', `/api/research/strategies?chain=${chain}&week=${encodeURIComponent(week)}`),
   setHandle: (handle: string) => call<{ ok: true; handle: string }>('PUT', '/api/profile/handle', { handle }),
   review: (chain: Chain, week = 'current') => call<ReviewData>('GET', `/api/review?${q(chain, week)}`),
   setReview: (userId: string, state: string, note: string, chain: Chain, week = 'current') =>
