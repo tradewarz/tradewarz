@@ -331,6 +331,8 @@ table.launches td.via { max-width: 120px; overflow: hidden; text-overflow: ellip
 .vtag.judged { background: var(--accent-soft); color: var(--accent); cursor: pointer; }
 .vtag.bundle { background: var(--loss-soft); color: var(--loss); }
 .notice.lease { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+.public-home .dash-shell.public { margin-top: 18px; }
+.gate-screen .rows { margin-top: 12px; }
 .head-link { color: var(--ink-2); text-decoration: none; font-size: 14px; padding: 6px 10px; border-radius: 8px; }
 .head-link:hover { color: var(--accent); background: var(--surface-2); }
 .guide-note { max-width: 560px; }
@@ -446,7 +448,7 @@ table.launches tbody tr.gone td { color: var(--muted); }
   box-shadow: 3px 3px 0 rgba(196,30,58,0.55), 0 0 0 3px rgba(196,30,58,0.18);
   clip-path: polygon(4% 0%, 96% 3%, 100% 10%, 97% 90%, 100% 100%, 6% 97%, 0% 90%, 3% 8%);
 }
-.brand .mark img { width: 100%; height: 100%; object-fit: cover; display: block; image-rendering: pixelated; }
+.brand .mark img { width: 100%; height: 100%; object-fit: cover; display: block; /* image-rendering removed: site logo should stay sharp when scaled */ }
 .topbar .pill.gate-pill,
 .pill.gate-pill {
   height: auto; border-radius: 0; font-size: 0.62rem; font-weight: 800;
@@ -559,11 +561,11 @@ footer {
     repeating-linear-gradient(-18deg, transparent, transparent 40px, rgba(196,30,58,0.055) 40px, rgba(196,30,58,0.055) 42px);
 }
 .welcome-mark {
-  width: 152px; height: 152px; margin: 0 auto 1.5rem; object-fit: cover; display: block;
+  width: 176px; height: 176px; margin: 0 auto 1.5rem; object-fit: cover; display: block;
   border: 2px solid rgba(232,234,237,0.25);
   box-shadow: 0 0 0 5px rgba(196,30,58,0.28), 5px 7px 0 rgba(0,0,0,0.55);
   clip-path: polygon(3% 0%, 97% 2%, 100% 8%, 98% 92%, 100% 100%, 5% 98%, 0% 94%, 2% 6%);
-  background: var(--surface); image-rendering: pixelated;
+  background: var(--surface); /* image-rendering removed: site logo should stay sharp when scaled */
 }
 .hero.welcome .eyebrow {
   font-size: 0.68rem; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase;
@@ -758,7 +760,7 @@ table.launches tbody tr.sel { background: rgba(196, 30, 58, 0.12); }
   .brand { font-size: 1.1rem; }
   .brand .wordmark { font-size: 1.12rem; }
   main { padding: 1rem 0.75rem 5rem; }
-  .welcome-mark { width: 132px; height: 132px; }
+  .welcome-mark { width: 148px; height: 148px; }
   .hero.welcome { padding: 2.75rem 1rem; min-height: 62vh; }
   .hero.welcome .btnrow { flex-direction: column; width: 100%; }
   .hero.welcome .btnrow .btn { width: 100%; }

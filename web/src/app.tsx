@@ -7,7 +7,8 @@ import { isUnlocked, lock, onWalletChange } from './botwallet/wallet.js';
 import { Boundary } from './ui/Boundary.jsx';
 import { Dashboard } from './ui/Dashboard.jsx';
 import { CreateWallet, PickBot, RestoreWallet, SaveWords, UnlockScreen, Welcome } from './ui/Onboarding.jsx';
-import { Guide, guideFromHash, openGuide, type GuideSection } from './ui/Guide.jsx';
+import { guideFromHash, openGuide, type GuideSection } from './ui/Guide.jsx';
+import { PublicHome } from './ui/PublicHome.jsx';
 import { toast } from './ui/toast.js';
 
 /**
@@ -32,11 +33,10 @@ export function App() {
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
   const showGuide = (section: GuideSection = 'what') => {
-    if (me) { openGuide(section); return; } // signed in: the dashboard has a Guide tab
+    if (me && me.gate.passed) { openGuide(section); return; } // signed in and through the gate: the dashboard has a Guide tab
     setGuide(section);
     history.replaceState(null, '', section === 'what' ? '#guide' : `#guide/${section}`);
   };
-  const closeGuide = () => { setGuide(null); history.replaceState(null, '', window.location.pathname); };
 
   useEffect(() => {
     (async () => {
@@ -71,8 +71,8 @@ export function App() {
   let body;
   if (hub === 'loading' || (me && vault === undefined)) body = <p class="muted">Connecting…</p>;
   else if (hub === 'offline') body = <div class="notice bad">The hub is not answering. If you run it yourself: <code>npm run dev:hub</code>, then reload.</div>;
-  else if (!me && guide) body = <Guide section={guide} onBack={closeGuide} />;
-  else if (!me) body = <Welcome info={info!} onSignedIn={setMe} onGuide={() => showGuide('what')} />;
+  else if (!me) body = <PublicHome info={info!} me={null} onSignedIn={setMe} onGuide={() => showGuide('what')} guideSection={guide} />;
+  else if (info!.gateMode === 'token' && !me.gate.passed) body = <PublicHome info={info!} me={me} onSignedIn={setMe} onGuide={() => showGuide('what')} guideSection={guide} onSignOut={signOut} />;
   else if (vault === null) body = restoring ? <RestoreWallet onDone={(v) => { setVault(v); setRestoring(false); }} onBack={() => setRestoring(false)} /> : <CreateWallet onDone={setVault} onRestore={() => setRestoring(true)} />;
   else if (!unlocked) body = <UnlockScreen vault={vault!} onDone={() => setUnlocked(true)} onForget={forgetWallet} />;
   else if (!vault!.backedUp) body = <SaveWords vault={vault!} onDone={setVault} />;

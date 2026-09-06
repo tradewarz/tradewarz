@@ -50,7 +50,7 @@ function progressText(c: Candidate): string {
 }
 const devShare = (c: Candidate): number | null => (c.pons ? c.pons.devSharePct : c.pump ? c.pump.devSharePct : null);
 
-export function Terminal({ strategies, onSaved }: { strategies: StrategyRecord[]; onSaved: (r: StrategyRecord) => void }) {
+export function Terminal({ strategies, onSaved, readOnly = false, onSignIn }: { strategies: StrategyRecord[]; onSaved: (r: StrategyRecord) => void; readOnly?: boolean; onSignIn?: () => void }) {
   const [chainPick, setChainPick] = useState<ChainPick>('all');
   const [filter, setFilter] = useState<Filter>('all');
   const [source, setSource] = useState<'all' | CandidateSource>('all');
@@ -66,7 +66,7 @@ export function Terminal({ strategies, onSaved }: { strategies: StrategyRecord[]
   const [saving, setSaving] = useState(false);
   // Buying by hand: the dialog's target, and the paste-an-address form.
   const [trade, setTrade] = useState<Candidate | null>(null);
-  const [addrForm, setAddrForm] = useState(true);
+  const [addrForm, setAddrForm] = useState(!readOnly);
   const [addrChain, setAddrChain] = useState<Chain>('solana');
   const [addr, setAddr] = useState('');
   const [resolving, setResolving] = useState(false);
@@ -136,7 +136,7 @@ export function Terminal({ strategies, onSaved }: { strategies: StrategyRecord[]
   ).slice(0, 250);
   // Alerts from the judged table: a pass on a chain whose bot is off, and a bundle on something you hold or watch.
   const alerted = useRef(new Set<string>());
-  for (const { c, v } of rows) {
+  for (const { c, v } of readOnly ? [] : rows) {
     const k = keyOf(c);
     if ((v.kind === 'pass' || v.kind === 'wait') && !states[c.chain].running && !alerted.current.has(`pass:${k}`)) {
       alerted.current.add(`pass:${k}`);
@@ -202,13 +202,14 @@ export function Terminal({ strategies, onSaved }: { strategies: StrategyRecord[]
         <span class={`dot ${live ? 'ok' : 'bad'}`} />
         <span class="feedtext">{!live ? (silence === Infinity ? 'connecting to the hub…' : `no word from the hub for ${Math.round(silence)}s`) : 'live'}</span>
         <FeedChips feed={feed} />
-        <AlertsMenu />
+        {!readOnly && <AlertsMenu />}
         <span class="spacer" />
         {hubStream.solUsd && <span class="muted small mono">SOL ${hubStream.solUsd.toFixed(2)}</span>}
         {hubStream.ethUsd && <span class="muted small mono">ETH ${hubStream.ethUsd.toFixed(0)}</span>}
         {hubStream.bnbUsd && <span class="muted small mono">BNB ${hubStream.bnbUsd.toFixed(0)}</span>}
         <div class="segmented sm">{(['all', ...CHAINS] as const).map((c) => <button key={c} class={chainPick === c ? 'on' : ''} title={c === 'all' ? 'every chain' : CHAIN_LABEL[c]} onClick={() => { setChainPick(c); setSel(null); }}>{c === 'all' ? 'All' : CHAIN_SHORT[c]}</button>)}</div>
-        {CHAINS.filter((c) => recordFor(c)).map((c) => { const r = recordFor(c)!; return <span key={c} class={`pill ${r.active ? 'ok' : ''}`} title={CHAIN_LABEL[c]}>{CHAIN_SHORT[c]} · {r.strategy.name} {r.active ? 'on' : 'off'}</span>; })}
+        {!readOnly && CHAINS.filter((c) => recordFor(c)).map((c) => { const r = recordFor(c)!; return <span key={c} class={`pill ${r.active ? 'ok' : ''}`} title={CHAIN_LABEL[c]}>{CHAIN_SHORT[c]} · {r.strategy.name} {r.active ? 'on' : 'off'}</span>; })}
+        {readOnly && <span class="pill" title="every row is judged by the Balanced preset for its chain">preview · Balanced rules</span>}
       </div>
 
       <div class="stats flex">
@@ -224,19 +225,19 @@ export function Terminal({ strategies, onSaved }: { strategies: StrategyRecord[]
         <div class="term-main term-chrome">
           <div class="term-bar">
             <div class="segmented sm">{(['all', 'pass', 'acted', 'watching', 'bundled'] as const).map((f) => <button key={f} class={filter === f ? 'on' : ''} onClick={() => setFilter(f)}>{f === 'all' ? `All (${rows.length})` : f === 'pass' ? `Passing (${passing})` : f === 'acted' ? `Traded (${traded})` : f === 'bundled' ? `Bundled (${bundled})` : `★ Watching (${watched.length})`}</button>)}</div>
-            <button class="btn sm" onClick={() => setAddrForm(!addrForm)}>Buy by address</button>
+            {!readOnly && <button class="btn sm" onClick={() => setAddrForm(!addrForm)}>Buy by address</button>}
             <select class="input sm" value={source} onChange={(e) => setSource((e.target as HTMLSelectElement).value as 'all' | CandidateSource)} title="how the hub found it">
               <option value="all">every source</option>
               {sources.map((s) => <option key={s} value={s}>{SOURCE_LABEL[s] ?? s}</option>)}
             </select>
             <input class="input sm search" placeholder="symbol, name or address" value={q} onInput={(e) => setQ((e.target as HTMLInputElement).value)} />
             <span class="spacer" />
-            <span class="muted small">{tuning && tuneRecord ? `judged by your unsaved changes to ${tuneRecord.strategy.name}` : chainPick === 'all' ? 'each row judged by its chain’s bot' : recordFor(chainPick) ? `judged by ${recordFor(chainPick)!.strategy.name}${recordFor(chainPick)!.active ? '' : ' (off)'}` : 'add a bot for this chain to see verdicts'}</span>
-            {!tuning && (chainPick === 'all'
+            <span class="muted small">{readOnly ? 'judged by the Balanced preset — sign in to set your own rules' : tuning && tuneRecord ? `judged by your unsaved changes to ${tuneRecord.strategy.name}` : chainPick === 'all' ? 'each row judged by its chain’s bot' : recordFor(chainPick) ? `judged by ${recordFor(chainPick)!.strategy.name}${recordFor(chainPick)!.active ? '' : ' (off)'}` : 'add a bot for this chain to see verdicts'}</span>
+            {!readOnly && !tuning && (chainPick === 'all'
               ? CHAINS.filter((c) => recordFor(c)).map((c) => <button key={c} class="btn sm" onClick={() => startTuning(c)}>Tune {CHAIN_SHORT[c]} rules</button>)
               : recordFor(chainPick) && <button class="btn sm" onClick={() => startTuning(chainPick)}>Tune rules</button>)}
           </div>
-          {addrForm && (
+          {addrForm && !readOnly && (
             <div class="term-bar addr">
               <select class="input sm" value={addrChain} onChange={(e) => setAddrChain((e.target as HTMLSelectElement).value as Chain)}>
                 {CHAINS.map((c) => <option key={c} value={c}>{CHAIN_LABEL[c]}</option>)}
@@ -316,6 +317,14 @@ export function Terminal({ strategies, onSaved }: { strategies: StrategyRecord[]
             <p class="muted small" style="margin:0">Every change re-judges the table on the left at once. Nothing the bot does changes until you save.</p>
             <RulesForm draft={draft} onChange={setDraft} />
           </aside>
+        ) : readOnly ? (
+          <aside class="term-side">
+            <div class="card">
+              <h3 style="margin-top:0">This is the live scanner</h3>
+              <p class="small">Every token the hub is following, on every chain, judged as it streams in — the same table a trader sees. Sign in with a wallet that holds the gate and this becomes yours: your own rules, one bot per chain, buying from any row, positions and a place on the board.</p>
+              <div class="btnrow"><button class="btn primary sm" onClick={onSignIn}>Sign in to trade</button><a class="btn sm" href="#guide" onClick={(e) => { e.preventDefault(); openGuide('terminal'); }}>What the columns mean</a></div>
+            </div>
+          </aside>
         ) : (
           <aside class="term-side">
             <h3>Open positions <span class="muted small">{open.length}</span></h3>
@@ -330,8 +339,8 @@ export function Terminal({ strategies, onSaved }: { strategies: StrategyRecord[]
       <ListingsPanel onPick={pickMint} />
       <IntelPanel onPick={pickMint} />
 
-      {selected && <Drawer c={selected} v={verdictFor(selected, strategyFor(selected.chain), held, bought)} onClose={() => setSel(null)} onBuy={() => setTrade(selected)} watched={isWatched(selected.chain, selected.address)} onToggleWatch={() => { toggleWatch(selected); bumpWatch((n) => n + 1); }} />}
-      {trade && <TradeDialog target={trade} strategies={strategies} onClose={() => setTrade(null)} onBought={() => { setFilter('acted'); }} />}
+      {selected && <Drawer c={selected} v={verdictFor(selected, strategyFor(selected.chain), held, bought)} onClose={() => setSel(null)} onBuy={readOnly ? (onSignIn ?? (() => undefined)) : () => setTrade(selected)} readOnly={readOnly} watched={isWatched(selected.chain, selected.address)} onToggleWatch={() => { toggleWatch(selected); bumpWatch((n) => n + 1); }} />}
+      {trade && !readOnly && <TradeDialog target={trade} strategies={strategies} onClose={() => setTrade(null)} onBought={() => { setFilter('acted'); }} />}
     </div>
   );
 }
@@ -526,7 +535,7 @@ function IntelPanel({ onPick }: { onPick: PickFn }) {
 
 // ---- the drawer: every fact the hub has about one token ------------------------------------------
 
-function Drawer({ c, v, onClose, onBuy, watched, onToggleWatch }: { c: Candidate; v: Verdict; onClose: () => void; onBuy: () => void; watched: boolean; onToggleWatch: () => void }) {
+function Drawer({ c, v, onClose, onBuy, watched, onToggleWatch, readOnly = false }: { c: Candidate; v: Verdict; onClose: () => void; onBuy: () => void; watched: boolean; onToggleWatch: () => void; readOnly?: boolean }) {
   useEffect(() => { const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose]);
   const p = c.pons ?? null;
   const q = c.pump ?? null;
@@ -539,9 +548,9 @@ function Drawer({ c, v, onClose, onBuy, watched, onToggleWatch }: { c: Candidate
         <button class="btn sm" onClick={onClose}>Close</button>
       </div>
       <div class="btnrow">
-        <button class="btn primary" onClick={onBuy}>Buy…</button>
+        <button class="btn primary" onClick={onBuy}>{readOnly ? 'Sign in to trade' : 'Buy…'}</button>
         <button class={`btn${watched ? ' on' : ''}`} onClick={onToggleWatch}>{watched ? '★ Watching' : '☆ Watch'}</button>
-        <span class="muted small">Buy opens a dialog for the amount; nothing is sent until you confirm there.</span>
+        <span class="muted small">{readOnly ? 'Buying, bots and positions unlock with a wallet that holds the gate.' : 'Buy opens a dialog for the amount; nothing is sent until you confirm there.'}</span>
       </div>
       <div class="btnrow wrap">
         <a class="btn sm" href={dexscreenerUrl(c.chain, c.address)} target="_blank" rel="noopener">DexScreener</a>

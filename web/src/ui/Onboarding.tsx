@@ -101,7 +101,7 @@ function BoardTeaser() {
   );
 }
 
-export function Welcome({ info, onSignedIn, onGuide }: { info: HubInfo; onSignedIn: (me: SessionUser) => void; onGuide?: () => void }) {
+export function Welcome({ info, onSignedIn, onGuide, teaser = true }: { info: HubInfo; onSignedIn: (me: SessionUser) => void; onGuide?: () => void; teaser?: boolean }) {
   return (
     <section class="screen landing">
       <div class="hero welcome">
@@ -115,7 +115,7 @@ export function Welcome({ info, onSignedIn, onGuide }: { info: HubInfo; onSigned
         <p class="muted small sig-note">Signing in is a <strong>signature, not a transaction</strong>: it costs nothing and moves nothing.</p>
         {onGuide && <p class="muted small guide-note">New here? <a href="#guide" onClick={(e) => { e.preventDefault(); onGuide(); }}>Read how it works</a> — the wallets, the bots, every column, exactly how the score and the leaderboard are computed — before you connect anything. The code is open source.</p>}
       </div>
-      <BoardTeaser />
+      {teaser && <BoardTeaser />}
     </section>
   );
 }
