@@ -330,6 +330,19 @@ table.launches td.via { max-width: 120px; overflow: hidden; text-overflow: ellip
 .vtag.score.reject { background: var(--loss-soft); color: var(--loss); }
 .vtag.judged { background: var(--accent-soft); color: var(--accent); cursor: pointer; }
 .vtag.bundle { background: var(--loss-soft); color: var(--loss); }
+/* ---- the Guide tab ------------------------------------------------------------------------- */
+.guide { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 28px; align-items: start; }
+.guide-nav { position: sticky; top: 12px; display: grid; gap: 4px; font-size: 13.5px; }
+.guide-nav .k { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+.guide-nav a { color: var(--ink-2); text-decoration: none; padding: 3px 0; }
+.guide-nav a:hover { color: var(--accent); }
+.guide-body { max-width: 860px; font-size: 15px; line-height: 1.6; }
+.guide-body h2 { margin: 30px 0 8px; font-size: 20px; scroll-margin-top: 14px; }
+.guide-body h2:first-child { margin-top: 0; }
+.guide-body p { margin: 0 0 12px; }
+.guide-body dl.facts dt { font-weight: 600; }
+.guide-body .notice { margin: 8px 0 14px; }
+@media (max-width: 860px) { .guide { grid-template-columns: 1fr; } .guide-nav { position: static; } }
 .alerts { position: relative; display: inline-block; }
 .alerts .btn.on { border-color: var(--accent); color: var(--accent); }
 .alerts-pop { position: absolute; top: calc(100% + 6px); left: 0; z-index: 30; min-width: 320px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; box-shadow: 0 10px 30px rgba(0,0,0,.35); display: grid; gap: 6px; }
@@ -399,7 +412,7 @@ table.launches tbody tr.gone td { color: var(--muted); }
   background: var(--accent); transform: skewX(-20deg); opacity: 0.7; pointer-events: none; z-index: 1;
 }
 
-/* ---- topbar: thicker crimson underline, bigger avatar, TradeWarZ brand ------------------- */
+/* ---- topbar: thicker crimson underline, bigger avatar, TradeWarz brand ------------------- */
 .topbar {
   position: sticky; top: 0; z-index: 10;
   background: var(--surface);

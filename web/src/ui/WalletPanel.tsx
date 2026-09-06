@@ -61,9 +61,9 @@ function ChainPanel({ chain, me, info, onChange }: { chain: Chain; me: SessionUs
     } catch (e) { toast(describeError(e), 'bad'); } finally { setBusy(null); }
   };
 
-  const doWithdraw = async () => {
+  const doWithdraw = async (everything = false) => {
     if (!gate) return toast(`Link your ${WALLET_APP[chain]} wallet first (Account tab): withdrawals only go to your own linked wallet.`, 'bad');
-    const raw = wd.trim().toLowerCase();
+    const raw = everything ? 'all' : wd.trim().toLowerCase();
     const amount: number | 'all' = raw === '' || raw === 'all' || raw === 'max' ? 'all' : Number(raw);
     if (amount !== 'all' && !(amount > 0)) return toast(`Enter an amount of ${NATIVE[chain]}, or leave it empty for all.`, 'bad');
     if (!confirm(`Withdraw ${amount === 'all' ? 'everything (minus a small fee reserve)' : `${amount} ${NATIVE[chain]}`} from the bot wallet to ${short(gate.address)}? The bot wallet signs this now.`)) return;
@@ -83,7 +83,7 @@ function ChainPanel({ chain, me, info, onChange }: { chain: Chain; me: SessionUs
         <div class="row"><div class="k">Balance</div><div class="v">{fmtAmount(balance, NATIVE[chain])} <button class="btn sm" style="margin-left:6px" onClick={refresh}>Refresh</button></div></div>
         <div class="row"><div class="k">Your {WALLET_APP[chain]}</div><div class="v">{gate ? <><span class="addr">{short(gate.address, 6)}</span> <span class="muted small">· {fmtAmount(gateBalance, NATIVE[chain])}</span></> : <span class="muted">not linked yet — link it in the Account tab to deposit and withdraw</span>}</div></div>
         <div class="row"><div class="k">Deposit</div><div class="v inline"><input class="input" inputMode="decimal" placeholder={`${NATIVE[chain]} to send from ${WALLET_APP[chain]}`} value={dep} onInput={(e) => setDep((e.target as HTMLInputElement).value)} /><button class="btn" disabled={!gate || busy !== null} onClick={deposit}>{busy === 'deposit' ? 'Waiting…' : 'Deposit'}</button></div></div>
-        <div class="row"><div class="k">Withdraw</div><div class="v inline"><input class="input" inputMode="decimal" placeholder={`${NATIVE[chain]} to send back, or all`} value={wd} onInput={(e) => setWd((e.target as HTMLInputElement).value)} /><button class="btn" disabled={!gate || busy !== null} onClick={doWithdraw}>{busy === 'withdraw' ? 'Sending…' : 'Withdraw'}</button></div></div>
+        <div class="row"><div class="k">Withdraw</div><div class="v inline"><input class="input" inputMode="decimal" placeholder={`${NATIVE[chain]} to send back`} value={wd} onInput={(e) => setWd((e.target as HTMLInputElement).value)} /><button class="btn" disabled={!gate || busy !== null} onClick={() => void doWithdraw()}>{busy === 'withdraw' ? 'Sending…' : 'Withdraw'}</button><button class="btn" disabled={!gate || busy !== null || !balance} title="send everything back to your wallet, leaving only a small fee reserve" onClick={() => void doWithdraw(true)}>All</button></div></div>
         {!isThisOne && busy !== 'register' && <div class="row"><div class="k"></div><div class="v"><button class="btn sm" onClick={register}>Register with the hub</button> <span class="muted small">Only registered wallets are scored on the leaderboard.</span></div></div>}
       </div>
     </section>

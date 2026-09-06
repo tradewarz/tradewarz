@@ -17,6 +17,7 @@ import { DecisionRow, OpenPositions, ago, native } from './Positions.jsx';
 import { toast } from './toast.js';
 import { TradeDialog, stubCandidate } from './TradeDialog.jsx';
 import { alert as fireAlert, alertSettings, enableNotifications, notificationsAllowed, notificationsSupported, onAlertSettings, setAlertSettings, unlockSound } from './alerts.js';
+import { openGuide } from './Guide.jsx';
 import { isWatched, toggleWatch, watchlist, type Watched } from './watchlist.js';
 
 type Filter = 'all' | 'pass' | 'acted' | 'watching' | 'bundled';
@@ -220,7 +221,7 @@ export function Terminal({ strategies, onSaved }: { strategies: StrategyRecord[]
       </div>
 
       <div class={`term-grid${tuning ? ' tuning' : ''}`}>
-        <div class="term-main">
+        <div class="term-main term-chrome">
           <div class="term-bar">
             <div class="segmented sm">{(['all', 'pass', 'acted', 'watching', 'bundled'] as const).map((f) => <button key={f} class={filter === f ? 'on' : ''} onClick={() => setFilter(f)}>{f === 'all' ? `All (${rows.length})` : f === 'pass' ? `Passing (${passing})` : f === 'acted' ? `Traded (${traded})` : f === 'bundled' ? `Bundled (${bundled})` : `★ Watching (${watched.length})`}</button>)}</div>
             <button class="btn sm" onClick={() => setAddrForm(!addrForm)}>Buy by address</button>
@@ -251,7 +252,7 @@ export function Terminal({ strategies, onSaved }: { strategies: StrategyRecord[]
                 <tr>
                   <th title="star to keep it in Watching">★</th><th>age</th>{showChainCol && <th>chain</th>}<th>token</th><th>via</th><th>verdict</th>
                   <th class="n">liquidity</th><th class="n">mcap</th><th class="n">curve</th><th class="n">dev</th><th title="other wallets that bought in the launch block">bundle</th>
-                  <th class="n">5m Δ</th><th class="n">vol 5m</th><th class="n">b/s 5m</th><th class="n">score</th><th>socials</th>
+                  <th class="n">5m Δ</th><th class="n">vol 5m</th><th class="n">b/s 5m</th><th class="n" title="the 0–100 listing score for coins that came through CoinGecko / CoinMarketCap; see the Guide">score</th><th>socials</th>
                 </tr>
               </thead>
               <tbody>
@@ -414,10 +415,10 @@ function ListingsPanel({ onPick }: { onPick: PickFn }) {
   const shown = rows.filter((r) => net === 'all' || r.network === net).slice(0, 150);
   const now = Date.now();
   return (
-    <section class="term-main panel">
+    <section class="term-main term-chrome panel">
       <div class="term-bar" onClick={() => setOpenPanel(!openPanel)} style="cursor:pointer">
         <b>Recently listed</b>
-        <span class="muted small">new pools on every chain, newest first · {data ? `${data.total} pools · ${data.source}` : 'loading…'}</span>
+        <span class="muted small">brand-new liquidity pools the moment a DEX creates them (GeckoTerminal) — nobody has vetted these · {data ? `${data.total} pools` : 'loading…'} · <a href="#" onClick={(e) => { e.preventDefault(); e.stopPropagation(); openGuide('panels'); }}>what's this?</a></span>
         {data?.error && <span class="pill warn" title={data.error}>feed paused</span>}
         {error && <span class="pill bad">{error}</span>}
         <span class="spacer" />
@@ -474,10 +475,10 @@ function IntelPanel({ onPick }: { onPick: PickFn }) {
   const src = data?.sources ?? [];
   const status = src.length ? src.map((s) => `${s.name === 'coingecko' ? 'CoinGecko' : 'CoinMarketCap'}: ${!s.enabled ? 'off' : !s.baselineAt ? 'recording a baseline' : `${s.newSinceBaseline} new since ${ago(s.baselineAt)} ago`}${s.lastError ? ` · ${s.lastError}` : ''}`).join(' · ') : '';
   return (
-    <section class="term-main panel">
+    <section class="term-main term-chrome panel">
       <div class="term-bar" onClick={() => setOpenPanel(!openPanel)} style="cursor:pointer">
         <b>New listings</b>
-        <span class="muted small">coins CoinGecko or CoinMarketCap started tracking · scored 0–100 with reasons · {data ? status || 'off' : 'loading…'}</span>
+        <span class="muted small">coins CoinGecko or CoinMarketCap just added to their catalogues (human-reviewed, usually days old), checked against DexScreener + GoPlus and scored 0–100 · {data ? status || 'off' : 'loading…'} · <a href="#" onClick={(e) => { e.preventDefault(); e.stopPropagation(); openGuide('score'); }}>how the score works</a></span>
         {error && <span class="pill bad">{error}</span>}
         <span class="spacer" />
         <select class="input sm" value={verdict} onClick={(e) => e.stopPropagation()} onChange={(e) => setVerdict((e.target as HTMLSelectElement).value as typeof verdict)}>
@@ -587,7 +588,7 @@ function Drawer({ c, v, onClose, onBuy, watched, onToggleWatch }: { c: Candidate
         </>)}
         {li && (<>
           <dt>listing</dt><dd><span class={`vtag score ${li.verdict.toLowerCase()}`}>{li.verdict} {li.score}</span> · {li.sources.map((s) => (s === 'coingecko' ? 'CoinGecko' : 'CoinMarketCap')).join(' + ')}{li.confirmed ? ' · confirmed on both' : ''} · detected {ago(li.detectedAt)} ago</dd>
-          <dt>why</dt><dd><ul class="reasons small" style="margin:0">{li.reasons.map((r, i) => <li key={i}>{r}</li>)}</ul></dd>
+          <dt>why</dt><dd><ul class="reasons small" style="margin:0">{li.reasons.map((r, i) => <li key={i}>{r}</li>)}</ul><a class="small" href="#" onClick={(e) => { e.preventDefault(); openGuide('score'); }}>how the score works</a></dd>
         </>)}
         <dt>updated</dt><dd>{ago(c.updatedAt)} ago</dd>
       </dl>

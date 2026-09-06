@@ -14,17 +14,25 @@ import { CHAIN_LABEL } from './helpers.js';
 import { Leaderboard } from './Leaderboard.jsx';
 import { Review } from './Review.jsx';
 import { Terminal } from './Terminal.jsx';
+import { Guide, type GuideSection } from './Guide.jsx';
 import { WalletPanel } from './WalletPanel.jsx';
 
-type Tab = 'bot' | 'terminal' | 'board' | 'wallet' | 'account' | 'review';
-const TAB_LABEL: Record<Tab, string> = { bot: 'Bot', terminal: 'Terminal', board: 'Board', wallet: 'Wallet', account: 'Account', review: 'Review' };
+type Tab = 'bot' | 'terminal' | 'board' | 'wallet' | 'account' | 'guide' | 'review';
+const TAB_LABEL: Record<Tab, string> = { bot: 'Bot', terminal: 'Terminal', board: 'Board', wallet: 'Wallet', account: 'Account', guide: 'Guide', review: 'Review' };
 
 export function Dashboard({ me, info, vault, strategies, onMe, onStrategies, onLocked, onSignOut }: {
   me: SessionUser; info: HubInfo; vault: VaultBlob; strategies: StrategyRecord[];
   onMe: (me: SessionUser) => void; onStrategies: (s: StrategyRecord[]) => void; onLocked: () => void; onSignOut: () => void;
 }) {
   const [tab, setTab] = useState<Tab>('bot');
+  const [guideSection, setGuideSection] = useState<GuideSection | null>(null);
   const active = strategies.filter((s) => s.active);
+  // "what's this?" links anywhere on the site open the Guide at their section.
+  useEffect(() => {
+    const on = (e: Event) => { setGuideSection((e as CustomEvent<GuideSection>).detail); setTab('guide'); };
+    window.addEventListener('tw:guide', on);
+    return () => window.removeEventListener('tw:guide', on);
+  }, []);
 
   // The scanning is always on while the dashboard is open, so the Terminal shows launches
   // whether or not a bot is switched on. Only the engine follows the on/off switch.
@@ -40,7 +48,7 @@ export function Dashboard({ me, info, vault, strategies, onMe, onStrategies, onL
   // open, whatever tab is showing: on when one is on, off otherwise, re-armed when its rules change.
   // One effect per chain, keyed on that chain's active strategy identity.
   const actives = CHAINS.map((c) => strategies.find((s) => s.chain === c && s.active) ?? null);
-  const activeKey = actives.map((a) => (a ? `:` : '-')).join('|');
+  const activeKey = actives.map((a) => (a ? `${a.id}:${a.updatedAt}` : '-')).join('|');
   useEffect(() => {
     CHAINS.forEach((c, i) => {
       const a = actives[i];
@@ -59,7 +67,7 @@ export function Dashboard({ me, info, vault, strategies, onMe, onStrategies, onL
   return (
     <div class={`dash-shell${tab === 'terminal' || tab === 'review' ? ' wide' : ''}`}>
       <div class="dash-tabs" role="tablist">
-        {(['bot', 'terminal', 'board', 'wallet', 'account', ...(me.owner ? (['review'] as const) : [])] as Tab[]).map((t) => (
+        {(['bot', 'terminal', 'board', 'wallet', 'account', 'guide', ...(me.owner ? (['review'] as const) : [])] as Tab[]).map((t) => (
           <button key={t} role="tab" aria-selected={tab === t} class={`tab${tab === t ? ' active' : ''}`} onClick={() => setTab(t)}>{TAB_LABEL[t]}</button>
         ))}
         <span class="spacer" />
@@ -71,6 +79,7 @@ export function Dashboard({ me, info, vault, strategies, onMe, onStrategies, onL
       {tab === 'review' && me.owner && <Review chains={info.chains} />}
       {tab === 'wallet' && <WalletPanel vault={vault} me={me} info={info} onChange={onMe} onLocked={onLocked} />}
       {tab === 'account' && <Account me={me} info={info} onChange={onMe} onSignOut={onSignOut} />}
+      {tab === 'guide' && <Guide section={guideSection} />}
     </div>
   );
 }

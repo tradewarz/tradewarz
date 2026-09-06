@@ -107,7 +107,7 @@ export function Welcome({ info, onSignedIn }: { info: HubInfo; onSignedIn: (me: 
       <div class="hero welcome">
         <img class="welcome-mark" src="/avatar.png" alt="" width="104" height="104" />
         <p class="eyebrow">Token-gated · non-custodial</p>
-        <h1 class="wordmark">TradeWar<span class="warz">Z</span></h1>
+        <h1 class="wordmark">TradeWar<span class="warz">z</span></h1>
         <p class="tagline">Build a trading bot in plain language.</p>
         <div class="gate-pill" role="status"><span>{info.gateRequired.toLocaleString('en-US')}</span> TRADEWARZ to enter</div>
         <p class="big">Run it in this tab. Keep your keys. Sign in with the wallet that holds the gate, pick a bot, and it trades from a wallet that exists only in your browser.</p>

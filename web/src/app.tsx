@@ -73,7 +73,7 @@ export function App() {
         <div class="in">
           <a class="brand" href="/">
             <span class="mark" aria-hidden="true"><img src="/avatar.png" alt="" width="52" height="52" /></span>
-            <span class="wordmark">TradeWar<span class="warz">Z</span></span>
+            <span class="wordmark">TradeWar<span class="warz">z</span></span>
           </a>
           <span class="spacer" />
           {info && <span class={`pill gate-pill ${info.gateMode === 'open' ? 'warn' : me?.gate.passed ? 'ok' : ''}`} title={me?.gate.reason ?? ''}>{info.gateMode === 'open' ? 'gate open · setup' : <><span>{info.gateRequired.toLocaleString('en-US')}</span> TRADEWARZ to enter</>}</span>}
@@ -81,7 +81,7 @@ export function App() {
         </div>
       </header>
       <main><Boundary>{body}</Boundary></main>
-      <footer>TradeWarZ is software you run yourself. It is not investment advice, and trading these markets can lose everything you put in. {info ? `Hub v${info.version}.` : ''}</footer>
+      <footer>TradeWarz is software you run yourself. It is not investment advice, and trading these markets can lose everything you put in. {info ? `Hub v${info.version}.` : ''}</footer>
     </>
   );
 }
