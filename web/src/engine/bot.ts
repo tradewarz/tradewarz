@@ -19,6 +19,18 @@ import { hubStream } from './stream.js';
 export type Verdict = 'buy' | 'skip' | 'hold' | 'exit' | 'error' | 'info';
 /** How long a position may sit with no market (no venue, or worth nothing) before it is written off. */
 const DEAD_AFTER_MS = 30 * 60_000;
+
+// Write-offs are also remembered here, outside the position store: a tab still running an older
+// build keeps saving its stale copy of a position, and this is what stops that copy from
+// resurrecting one you removed. Applied on every load.
+const TOMBSTONES_KEY = 'tradewarz.writtenOff';
+function tombstones(): Set<string> {
+  try { return new Set(JSON.parse(localStorage.getItem(TOMBSTONES_KEY) ?? '[]') as string[]); } catch { return new Set(); }
+}
+function addTombstone(id: string): void {
+  const s = tombstones(); s.add(id);
+  try { localStorage.setItem(TOMBSTONES_KEY, JSON.stringify([...s].slice(-500))); } catch { /* private mode */ }
+}
 export interface Decision { at: number; token: string; symbol: string; verdict: Verdict; reasons: string[]; tx?: string }
 
 export interface BotState {
@@ -120,6 +132,7 @@ export class Bot {
     this.positions.clear(); for (const p of positions) if (p.chain === this.chain) this.positions.set(p.id, p);
     this.ledger.clear(); for (const l of ledger) if (l.chain === this.chain) this.ledger.set(l.day, l);
     this.cooldowns.clear(); for (const c of cooldowns) if (c.until > Date.now() && c.key.startsWith(`${this.chain}:`)) this.cooldowns.set(c.key, c);
+    await this.applyTombstones();
     hubStream.start();
     engineLease.start();
     this.off = hubStream.on((m) => { void this.onMessage(m); });
@@ -141,9 +154,21 @@ export class Bot {
   async reload(): Promise<void> {
     const [positions, ledger, cooldowns] = await Promise.all([botStore.positions(), botStore.ledger(), botStore.cooldowns()]);
     this.positions.clear(); for (const p of positions) if (p.chain === this.chain) this.positions.set(p.id, p);
+    await this.applyTombstones();
     this.ledger.clear(); for (const l of ledger) if (l.chain === this.chain) this.ledger.set(l.day, l);
     this.cooldowns.clear(); for (const c of cooldowns) if (c.until > Date.now() && c.key.startsWith(`${this.chain}:`)) this.cooldowns.set(c.key, c);
     this.changed();
+  }
+  /** A position removed earlier that a stale tab has re-saved as open is closed again, quietly. */
+  private async applyTombstones(): Promise<void> {
+    const dead = tombstones();
+    if (!dead.size) return;
+    for (const pos of this.positions.values()) {
+      if (pos.status !== 'open' || !dead.has(pos.id)) continue;
+      pos.status = 'closed'; pos.lastWei = '0'; pos.writtenOff = true;
+      if (!pos.exits.some((x) => x.reason.startsWith('written off'))) pos.exits = [...pos.exits, { at: Date.now(), tokens: pos.tokens, valueWei: '0', reason: 'written off: removed earlier (re-applied)', tx: null }];
+      if (engineLease.active) await botStore.savePosition(pos).catch(() => undefined);
+    }
   }
   private scheduleReload(): void {
     if (this.reloadTimer !== null) return;
@@ -259,6 +284,7 @@ export class Bot {
     const basis = (BigInt(pos.entryWei) * held) / BigInt(pos.tokensAtEntry || pos.tokens || '1');
     pos.exits = [...pos.exits, { at: Date.now(), tokens: held.toString(), valueWei: '0', reason: `written off: ${reason}`, tx: null }];
     pos.status = 'closed'; pos.lastWei = '0'; pos.writtenOff = true;
+    addTombstone(pos.id);
     const day = this.today();
     day.realizedWei = (BigInt(day.realizedWei) - basis).toString();
     await botStore.saveLedger(day);

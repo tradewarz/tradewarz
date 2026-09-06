@@ -41,6 +41,7 @@ export const api = {
   track: (chain: Chain, address: string) => call<{ ok: true; candidate: Candidate | null }>('POST', '/api/stream/track', { chain, address }),
   listings: (limit = 300) => call<ListingsView>('GET', `/api/listings?limit=${limit}`),
   intel: (limit = 200) => call<IntelView>('GET', `/api/intel?limit=${limit}`),
+  ops: () => call<import('./ui/Ops.js').OpsData>('GET', '/api/ops'),
 
   // the contest
   board: (chain: Chain, week = 'current') => call<BoardView>('GET', `/api/board?${q(chain, week)}`),
