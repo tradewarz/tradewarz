@@ -814,3 +814,25 @@ table.launches tbody tr.sel { background: rgba(196, 30, 58, 0.12); }
 .copycard .signals { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
 .copycard .signal { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; font-size: 13px; }
 .copycard .signal .pill { text-transform: uppercase; font-size: 10px; letter-spacing: .04em; }
+/* AI coach (Bot tab) */
+.coach .coach-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 6px; }
+.coach .coach-settings { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; }
+.coach .coach-settings .row { display: flex; gap: 12px; padding: 6px 0; align-items: flex-start; }
+.coach .coach-settings .k { min-width: 80px; font-weight: 600; padding-top: 6px; }
+.coach .coach-settings .v { flex: 1; }
+.coach .coach-settings .v .input { max-width: 420px; }
+.coach .coach-pack { max-height: 260px; overflow: auto; white-space: pre-wrap; font-size: 11px; margin-top: 6px; padding: 8px; border: 1px solid var(--line); border-radius: 8px; }
+.coach .coach-chat { margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
+.coach .coach-user { padding: 6px 10px; border-left: 3px solid var(--line); }
+.coach .coach-answer { padding: 10px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); font-size: 14px; line-height: 1.5; }
+.coach .coach-answer h4 { margin: 10px 0 4px; font-size: 14px; }
+.coach .coach-answer p { margin: 6px 0; }
+.coach .coach-answer ul, .coach .coach-answer ol { margin: 4px 0 8px 18px; padding: 0; }
+.coach .coach-answer pre { white-space: pre-wrap; font-size: 12px; }
+.coach .coach-suggestions { margin-top: 12px; }
+.coach .coach-suggestions h3 { margin: 0 0 8px; font-size: 14px; }
+.coach .suggestion { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px dashed var(--line); font-size: 13px; }
+.coach .suggestion:last-child { border-bottom: 0; }
+.coach .suggestion > span:nth-child(2) { flex: 1; min-width: 200px; }
+.coach .coach-ask { display: flex; gap: 8px; margin-top: 12px; }
+.coach .coach-ask .input { flex: 1; }

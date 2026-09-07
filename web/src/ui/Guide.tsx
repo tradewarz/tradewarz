@@ -19,6 +19,7 @@ export const GUIDE_SECTIONS = [
   ['bundle', 'The bundle flag'],
   ['positions', 'Positions'],
   ['board', 'The leaderboard'],
+  ['coach', 'The AI coach'],
   ['safety', 'What is checked, and what is not'],
   ['sources', 'Where the data comes from'],
   ['open', 'Open source'],
@@ -48,7 +49,7 @@ export function Guide({ section, onBack }: { section: GuideSection | null; onBac
   return (
     <div class="guide">
       <nav class="guide-nav">
-        {onBack && <button class="btn sm" style="margin-bottom:10px" onClick={onBack}>← Back to sign in</button>}
+        {onBack && <button class="btn sm" style="margin-bottom:10px" onClick={onBack}>← Back</button>}
         <div class="k">On this page</div>
         {GUIDE_SECTIONS.map(([id, title]) => <a key={id} href={`#g-${id}`} onClick={(e) => { e.preventDefault(); document.getElementById(`g-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}>{title}</a>)}
       </nav>
@@ -142,6 +143,12 @@ export function Guide({ section, onBack }: { section: GuideSection | null; onBac
         <p>Nothing you report is believed: your tab sends transaction <i>hashes</i> only, and the hub reads each receipt from the chain itself — what left your wallet, what came back, the gas. The top three are held for {LEADERBOARD_RULES.reviewHours} hours of human review before any prize; a week nobody finished positive rolls over. Prizes are announced on the Board tab when they are on.</p>
         <p><b>What is kept.</b> The hub records every verified trade made through the site, together with the rules (the saved strategy version) or the hand buy that produced it. TradeWarz uses that record to see which kinds of rules actually work and to improve the presets; it is not sold and it never includes keys, phrases or anything a wallet has not already published on-chain.</p>
         <p><b>Your data is yours.</b> The Bot tab has a "Your data" card: download every closed trade as a spreadsheet, or take a <i>review pack</i> — your rules in words, every trade with its result, the bots' recent decisions with the rule behind each, your open positions — written so you can paste it into any AI you already pay for and ask what is working and what to change.</p>
+
+        <h2 id="g-coach">The AI coach</h2>
+        <p>At the bottom of the Bot tab, the coach reads your trading and says what is working, what is not, and what to change — using an AI account that is <b>yours</b>. Pick a provider, paste your own key, press Review. The free ones come first: Google Gemini and Groq have free tiers, OpenRouter lists free models, and Ollama or LM Studio run a model on your own computer with no key at all. OpenAI and Anthropic work too, on your paid key.</p>
+        <p><b>What is sent, and where:</b> your review pack — the same document "Your data" gives you: your rules in words, every closed trade, the bots' recent decisions and your open positions — plus a fixed instruction telling the model to use only those numbers, to respect the guardrails, and never to suggest chasing losses. It goes from your browser straight to the provider you chose. The TradeWarz hub never sees your key, the pack or the answer; nothing about it is stored anywhere but this browser. "Show exactly what was sent" shows the whole pack. The provider's own data terms apply to what you send it.</p>
+        <p><b>Suggestions:</b> the coach ends with concrete rule changes ("Solana bot: stop loss 20%") shown as Apply buttons. Applying one runs the same schema and guardrail checks as the Builder and saves the rule; anything that would loosen a guardrail is refused with the guardrail's own sentence. You can ask follow-up questions in the same conversation.</p>
+        <p>It is a coach, not an oracle: with few closed trades it will (and should) tell you the sample is too small, and a model can still be wrong about your data. Read the numbers it quotes against the review pack before you change anything.</p>
 
         <h2 id="g-safety">What is checked, and what is not</h2>
         <p>Before a buy, the bot checks what it can: the token's contract report from GoPlus where GoPlus covers the chain (mint and freeze authority, honeypot, sell tax, holder concentration); on pons launches, the opening tax it would pay right now; on Base and BNB Chain, a quoted buy-and-sell round trip — if selling straight back would lose more than a quarter of the stake, it does not buy; on launches, the creator's buy, the launch-block bundle and the launcher's history where known. pump.fun tokens are structurally fixed-supply with no mint or freeze, so only their trading behaviour is judged.</p>

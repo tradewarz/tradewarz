@@ -10,7 +10,7 @@
   ],
   "scripts": {
     "typecheck": "npm run typecheck -w shared -w hub -w web",
-    "test": "npm test -w shared -w hub",
+    "test": "npm test -w shared -w hub -w web",
     "build": "npm run build -w shared -w web -w hub",
     "dev:hub": "npm run dev -w hub",
     "dev:web": "npm run dev -w web",

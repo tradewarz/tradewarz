@@ -7,7 +7,7 @@ import { isUnlocked, lock, onWalletChange, setWithdrawTargets } from './botwalle
 import { Boundary } from './ui/Boundary.jsx';
 import { Dashboard } from './ui/Dashboard.jsx';
 import { CreateWallet, PickBot, RestoreWallet, SaveWords, UnlockScreen, Welcome } from './ui/Onboarding.jsx';
-import { guideFromHash, openGuide, type GuideSection } from './ui/Guide.jsx';
+import { Guide, guideFromHash, openGuide, type GuideSection } from './ui/Guide.jsx';
 import { PublicHome } from './ui/PublicHome.jsx';
 import { toast } from './ui/toast.js';
 
@@ -32,11 +32,15 @@ export function App() {
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
+  // The dashboard (with its own Guide tab) is on screen only once every step before it is done.
+  const throughGate = !!me && (info?.gateMode === 'open' || me.gate.passed);
+  const dashboardMounted = hub === 'ready' && throughGate && !!vault && unlocked && !!vault.backedUp && strategies !== null && !registering && (strategies.length > 0 || skippedPick);
   const showGuide = (section: GuideSection = 'what') => {
-    if (me && me.gate.passed) { openGuide(section); return; } // signed in and through the gate: the dashboard has a Guide tab
+    if (dashboardMounted) { openGuide(section); return; } // the dashboard has a Guide tab
     setGuide(section);
     history.replaceState(null, '', section === 'what' ? '#guide' : `#guide/${section}`);
   };
+  const closeGuide = () => { setGuide(null); history.replaceState(null, '', '/'); };
 
   useEffect(() => {
     (async () => {
@@ -76,6 +80,8 @@ export function App() {
   else if (hub === 'offline') body = <div class="notice bad">The hub is not answering. If you run it yourself: <code>npm run dev:hub</code>, then reload.</div>;
   else if (!me) body = <PublicHome info={info!} me={null} onSignedIn={setMe} onGuide={() => showGuide('what')} guideSection={guide} />;
   else if (info!.gateMode !== 'open' && !me.gate.passed) body = <PublicHome info={info!} me={me} onSignedIn={setMe} onGuide={() => showGuide('what')} guideSection={guide} onSignOut={signOut} />;
+  // Signed in but between steps (wallet locked, words not saved yet): the Guide still opens, on its own.
+  else if (guide && !dashboardMounted) body = <Guide section={guide} onBack={closeGuide} />;
   else if (vault === null) body = restoring ? <RestoreWallet onDone={(v) => { setVault(v); setRestoring(false); }} onBack={() => setRestoring(false)} /> : <CreateWallet onDone={setVault} onRestore={() => setRestoring(true)} />;
   else if (!unlocked) body = <UnlockScreen vault={vault!} onDone={() => setUnlocked(true)} onForget={forgetWallet} />;
   else if (!vault!.backedUp) body = <SaveWords vault={vault!} onDone={setVault} />;

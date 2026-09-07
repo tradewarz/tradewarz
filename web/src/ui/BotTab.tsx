@@ -7,6 +7,7 @@ import { api, describeError } from '../api.js';
 import { botFor } from '../engine/bot.js';
 import { BotPanel } from './BotPanel.jsx';
 import { MyData } from './MyData.jsx';
+import { Coach } from './Coach.jsx';
 import { Builder } from './Builder.jsx';
 import { CHAIN_LABEL } from './helpers.js';
 import { Numbers } from './Numbers.jsx';
@@ -97,6 +98,7 @@ export function BotTab({ me, strategies, onStrategies, onTerminal }: { me: Sessi
         </div>
       )}
       {strategies.length > 0 && <MyData handle={me.handle || 'me'} strategies={strategies} />}
+      {strategies.length > 0 && <Coach handle={me.handle || 'me'} strategies={strategies} onStrategies={onStrategies} />}
     </div>
   );
 }
