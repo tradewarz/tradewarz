@@ -1,5 +1,5 @@
 // pons v2 on Robinhood Chain and the Uniswap v4 pieces its graduated pools use. Addresses and
-// ABIs as verified by the  project (docs.ponsfamily.com/v2, Blockscout, the pons repo).
+// ABIs as verified against docs.ponsfamily.com/v2, Blockscout, and the pons repo.
 // Pure data: no clients here, so the hub and the browser share it.
 
 import { parseAbi, toEventSelector, toFunctionSelector, type Address } from 'viem';
@@ -8,7 +8,7 @@ export const ROBINHOOD_CHAIN_ID = 4663;
 export const ROBINHOOD_RPC = 'https://rpc.mainnet.chain.robinhood.com';
 export const ROBINHOOD_WS = 'wss://robinhood-rpc.publicnode.com';
 export const ROBINHOOD_EXPLORER = 'https://robinhoodchain.blockscout.com';
-/** Canonical Multicall3 (verified live 2026-09-03 by ). */
+/** Canonical Multicall3 (verified live 2026-09-03). */
 export const MULTICALL3: Address = '0xcA11bde05977b3631167028862bE2a173976CA11';
 
 export const PONS = {

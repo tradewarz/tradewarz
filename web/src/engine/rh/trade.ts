@@ -1,5 +1,5 @@
 // Robinhood Chain execution from the tab: pons curve buys/sells and v4 pool sells, signed by
-// the bot wallet held in memory. Ported from  trade layer; the only change is that the
+// the bot wallet held in memory. The only adaptation is that the
 // signer is the unlocked in-browser account and the RPC is the public endpoint the hub named.
 
 import { createPublicClient, createWalletClient, defineChain, http, parseEventLogs, type Address, type Hex, type PublicClient, type WalletClient } from 'viem';
