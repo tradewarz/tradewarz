@@ -9,6 +9,8 @@ import { Dashboard } from './ui/Dashboard.jsx';
 import { CreateWallet, PickBot, RestoreWallet, SaveWords, UnlockScreen, Welcome } from './ui/Onboarding.jsx';
 import { Guide, guideFromHash, openGuide, TG_CHANNEL_URL, TG_CHAT_URL, X_URL, type GuideSection } from './ui/Guide.jsx';
 import { Privacy, privacyFromHash } from './ui/Privacy.jsx';
+import { Terms, termsFromHash } from './ui/Terms.jsx';
+import { Risk, riskFromHash } from './ui/Risk.jsx';
 import { PublicHome } from './ui/PublicHome.jsx';
 import { canPromptInstall, isIOS, isStandalone, onInstallChange, promptInstall } from './ui/install.js';
 import { hubStream } from './engine/stream.js';
@@ -63,10 +65,17 @@ export function App() {
   const [registering, setRegistering] = useState(false);
   // The Guide for people who have not signed in: opened from the header, the welcome screen, or a #guide link.
   const [guide, setGuide] = useState<GuideSection | null>(() => guideFromHash());
-  // Privacy notice from the footer / #privacy — shown without unmounting the dashboard (bots keep running).
+  // Privacy / Terms / Risk from the footer hashes — shown without unmounting the dashboard (bots keep running).
   const [privacy, setPrivacy] = useState(() => privacyFromHash());
+  const [terms, setTerms] = useState(() => termsFromHash());
+  const [risk, setRisk] = useState(() => riskFromHash());
   useEffect(() => {
-    const onHash = () => { setGuide(guideFromHash()); setPrivacy(privacyFromHash()); };
+    const onHash = () => {
+      setGuide(guideFromHash());
+      setPrivacy(privacyFromHash());
+      setTerms(termsFromHash());
+      setRisk(riskFromHash());
+    };
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
@@ -75,18 +84,29 @@ export function App() {
   // The dashboard (with its own Guide tab) is on screen only once every step before it is done.
   const throughGate = !!me && (info?.gateMode === 'open' || me.gate.passed);
   const dashboardMounted = hub === 'ready' && (throughGate || windDown) && !!vault && unlocked && !!vault.backedUp && strategies !== null && !registering && (strategies.length > 0 || skippedPick);
+  const clearNotices = () => { setPrivacy(false); setTerms(false); setRisk(false); };
   const showGuide = (section: GuideSection = 'what') => {
-    if (privacy) setPrivacy(false);
+    clearNotices();
     if (dashboardMounted) { openGuide(section); return; } // the dashboard has a Guide tab
     setGuide(section);
     history.replaceState(null, '', section === 'what' ? '#guide' : `#guide/${section}`);
   };
   const closeGuide = () => { setGuide(null); history.replaceState(null, '', '/'); };
   const showPrivacy = () => {
-    setPrivacy(true);
+    clearNotices(); setPrivacy(true);
     history.replaceState(null, '', '#privacy');
   };
   const closePrivacy = () => { setPrivacy(false); history.replaceState(null, '', '/'); };
+  const showTerms = () => {
+    clearNotices(); setTerms(true);
+    history.replaceState(null, '', '#terms');
+  };
+  const closeTerms = () => { setTerms(false); history.replaceState(null, '', '/'); };
+  const showRisk = () => {
+    clearNotices(); setRisk(true);
+    history.replaceState(null, '', '#risk');
+  };
+  const closeRisk = () => { setRisk(false); history.replaceState(null, '', '/'); };
 
   useEffect(() => {
     (async () => {
@@ -163,12 +183,14 @@ export function App() {
       </header>
       <ControlBanner initial={info?.control} />
       <main>
-        <div style={privacy ? 'display:none' : undefined} aria-hidden={privacy || undefined}>
+        <div style={(privacy || terms || risk) ? 'display:none' : undefined} aria-hidden={(privacy || terms || risk) || undefined}>
           <Boundary>{body}</Boundary>
         </div>
         {privacy && <Boundary><Privacy onBack={closePrivacy} /></Boundary>}
+        {terms && <Boundary><Terms onBack={closeTerms} /></Boundary>}
+        {risk && <Boundary><Risk onBack={closeRisk} /></Boundary>}
       </main>
-      <footer>TradeWarz is software you run yourself. It is not investment advice, and trading these markets can lose everything you put in. {info ? <>Hub v{info.version}{info.build ? <> · build <a href={`${REPO_URL}/commit/${info.build}`} target="_blank" rel="noopener noreferrer" title="the exact code this hub runs, on GitHub">{info.build.slice(0, 7)}</a></> : null}.</> : ''} · <a href="#privacy" onClick={(e) => { e.preventDefault(); showPrivacy(); }}>Privacy</a> · <a href={TG_CHANNEL_URL} target="_blank" rel="noopener noreferrer">Channel</a> · <a href={TG_CHAT_URL} target="_blank" rel="noopener noreferrer">Chat</a> · <a href={X_URL} target="_blank" rel="noopener noreferrer">X</a></footer>
+      <footer>TradeWarz is software you run yourself. It is not investment advice, and trading these markets can lose everything you put in. {info ? <>Hub v{info.version}{info.build ? <> · build <a href={`${REPO_URL}/commit/${info.build}`} target="_blank" rel="noopener noreferrer" title="the exact code this hub runs, on GitHub">{info.build.slice(0, 7)}</a></> : null}.</> : ''} · <a href="#privacy" onClick={(e) => { e.preventDefault(); showPrivacy(); }}>Privacy</a> · <a href="#terms" onClick={(e) => { e.preventDefault(); showTerms(); }}>Terms</a> · <a href="#risk" onClick={(e) => { e.preventDefault(); showRisk(); }}>Risk</a> · <a href={TG_CHANNEL_URL} target="_blank" rel="noopener noreferrer">Channel</a> · <a href={TG_CHAT_URL} target="_blank" rel="noopener noreferrer">Chat</a> · <a href={X_URL} target="_blank" rel="noopener noreferrer">X</a></footer>
     </>
   );
 }

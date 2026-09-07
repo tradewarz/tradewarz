@@ -22,11 +22,14 @@ What the blueprint sets up, and why:
 | Health check | `/api/health` | Unauthenticated, no personal data, reports the feeds. |
 | `TW_HOST` | `0.0.0.0` | Render's proxy connects from outside the container. |
 | `PORT` | set by Render | The hub reads `PORT` when `TW_PORT` is not set. |
-| `TW_TRUST_PROXY` | `proxy` | Rate limits key on the client address; behind one proxy the last `x-forwarded-for` hop is the client. Use `cloudflare` when Cloudflare fronts Render. |
+| `TW_TRUST_PROXY` | `cloudflare` | Production blueprint: Cloudflare fronts Render, so rate limits key on `cf-connecting-ip`. Use `proxy` only when a single reverse proxy sits in front with no Cloudflare. |
 | `TW_PUBLIC` | `1` | Fail-safe mode: the gate is **closed** (everyone may look, nobody trades) until the token addresses exist, and the cookie is Secure. |
 
 Deploys restart the process (a disk-backed service cannot do a zero-downtime swap). Open tabs reconnect on
 their own; bots resume when the stream is back. Expect a gap of about a minute.
+
+If an existing Render service was created before the blueprint change, confirm the live env shows
+`TW_TRUST_PROXY=cloudflare` — dashboard env does not always re-sync from `render.yaml` for already-set keys.
 
 ### Values you fill in
 
@@ -87,12 +90,24 @@ seconds and survive a restart. Use them during an incident before you touch anyt
 1. Blueprint deployed, `/api/health` answers, the page loads over HTTPS.
 2. `TW_DOMAIN` matches the address bar; signing in with Phantom and MetaMask works.
 3. The browser Helius key is locked to the domain; the hub key is not in `TW_PUBLIC_RPC_*`.
-4. Start-up log shows `gate=CLOSED` (or `token` once the contract is set), `cookieSecure=yes`, `proxy=proxy`.
+4. Start-up log shows `gate=CLOSED` (or `token` once the contract is set), `cookieSecure=yes`, `proxy=cloudflare`.
 5. Your wallet is in `TW_OWNER_WALLETS` and the Ops tab shows feed health.
 6. Disk mounted: after a redeploy, sessions and strategies survive.
 
 ## Anywhere else (a VPS, Fly, a home server)
 
 The same rules apply: Node 22.13+, one instance, a real disk for `TW_DB`, `TW_PUBLIC=1`, `TW_COOKIE_SECURE=1`,
-HTTPS terminated in front (Caddy, nginx, Cloudflare), `TW_TRUST_PROXY=proxy` (or `cloudflare`), and
-`TW_HOST=127.0.0.1` when the proxy runs on the same machine. `hub/.env.example` lists every knob.
+HTTPS terminated in front (Caddy, nginx, Cloudflare), `TW_TRUST_PROXY=cloudflare` when Cloudflare fronts the site
+(or `proxy` for a single reverse proxy with no Cloudflare), and `TW_HOST=127.0.0.1` when the proxy runs on the same
+machine. `hub/.env.example` lists every knob.
+
+### Soft-launch checklist
+
+- Confirm Helius Allowed Domains for the public browser key = `tradewarz.app` (and `www.tradewarz.app` if used).
+- Prefer Better Stack (or similar) on `/api/health/deep`; keep Render’s own probe on `/api/health`.
+- `TW_TRUST_PROXY=cloudflare` when Cloudflare fronts (blueprint sets this; if the live Render service’s env is
+  separate from blueprint sync, set it in the dashboard too).
+- Optional: `TW_COINGECKO_KEY` (demo or pro) raises CoinGecko limits for listings / intel; keyless still works with
+  longer 429 backoff.
+- Optional: `TW_MAX_ANON_STREAMS` caps live SSE seats for viewers who have not signed in (default **24** on public
+  hubs); signed-in streams are unaffected. Beyond the cap the page falls back to polling.

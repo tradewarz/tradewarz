@@ -26,9 +26,9 @@ services:
       # Render hands the port in PORT; the hub reads it. It must listen on every interface behind Render's proxy.
       - key: TW_HOST
         value: 0.0.0.0
-      # Render's proxy sits in front: believe the last x-forwarded-for hop for rate limits (set to cloudflare if Cloudflare fronts Render).
+      # Cloudflare fronts the public site; use cf-connecting-ip for rate limits (not the last x-forwarded-for hop).
       - key: TW_TRUST_PROXY
-        value: proxy
+        value: cloudflare
       # A public hub: the gate fails closed until TW_TOKEN_* are set, and the session cookie is Secure.
       - key: TW_PUBLIC
         value: "1"
