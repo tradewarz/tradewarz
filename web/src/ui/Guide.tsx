@@ -33,6 +33,7 @@ export const openGuide = (section: GuideSection): void => { window.dispatchEvent
 export const REPO_URL = 'https://github.com/tradewarz/tradewarz';
 export const TG_CHANNEL_URL = 'https://t.me/tradewarzhq';
 export const TG_CHAT_URL = 'https://t.me/tradewarzchat';
+export const X_URL = 'https://x.com/tradewarzhq';
 
 /** The section named in the address bar: #guide or #guide/<section>. */
 export function guideFromHash(hash = window.location.hash): GuideSection | 'what' | null {
