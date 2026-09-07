@@ -32,10 +32,13 @@ their own; bots resume when the stream is back. Expect a gap of about a minute.
 
 - `TW_DOMAIN` — the hostname people type (`tradewarz.app`, not `https://…`). It is inside the message wallets
   sign; if it does not match what the browser sees, sign-in fails with a clear message.
-- `TW_RPC_SOLANA` — the hub's Helius URL. Private; never shown to anyone.
+- `TW_RPC_SOLANA` — the hub's Helius URL, `https://mainnet.helius-rpc.com/?api-key=<key>` (a bare key pasted
+  here is expanded to that URL). Private; never shown to anyone. Do **not** lock this key to a domain: the hub
+  calls from a server, which carries no site origin, and Helius would refuse it.
 - `TW_PUBLIC_RPC_SOLANA` — a **second** Helius key for browsers. Every visitor can read it, so in the Helius
-  dashboard (API key → Access Control Rules → Allowed Domains) lock it to `TW_DOMAIN` before the site is public.
-  The hub logs a note at start-up when this URL carries a key.
+  dashboard (RPCs → Access Control Rules → Allowed Domains) lock it to `TW_DOMAIN` (and `www.`) before the site
+  is public. The hub logs a note at start-up when this URL carries a key, and a WARNING when either value is
+  not an endpoint URL or the two are the same keyed URL.
 - `TW_OWNER_WALLETS` — the wallet address(es) you sign in with. Owners see Review, Research and Ops.
 - `TW_TOKEN_SOLANA` / `TW_TOKEN_ROBINHOOD` — the TRADEWARZ contract(s). Setting either switches the gate from
   closed to token mode. Until then the page tells signed-in people that trading opens at launch.
