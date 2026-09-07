@@ -9,7 +9,7 @@ import { CHAIN_LABEL, CHAIN_SHORT, short } from './helpers.js';
 
 export interface StrategyStat {
   chain: Chain; userId: string; handle: string | null;
-  strategyId: string; versionId: string | null; name: string; savedAt: number | null; strategy: unknown; manual: boolean;
+  strategyId: string; versionId: string | null; name: string; savedAt: number | null; strategy: unknown; manual: boolean; copied?: boolean;
   trades: number; wins: number; deployedUsd: number; pnlUsd: number; returnPct: number; avgHoldMin: number; bestUsd: number; worstUsd: number;
   firstAt: number; lastAt: number;
 }
@@ -30,7 +30,7 @@ export function ResearchPanel({ weeks }: { weeks: string[] }) {
     return () => { alive = false; };
   }, [chain, week]);
   const rows = [...(data?.rows ?? [])].sort((a, b) => (sort === 'wins' ? b.wins / Math.max(1, b.trades) - a.wins / Math.max(1, a.trades) : b[sort] - a[sort]));
-  const key = (r: StrategyStat) => `${r.userId}|${r.strategyId}|${r.versionId ?? ''}|${r.manual ? 1 : 0}`;
+  const key = (r: StrategyStat) => `${r.userId}|${r.strategyId}|${r.versionId ?? ''}|${r.manual ? 1 : 0}|${r.copied ? 1 : 0}`;
   return (
     <div class="card research">
       <h2>Research <span class="muted small">owner only · every trade anyone made, by the rules that made it</span></h2>

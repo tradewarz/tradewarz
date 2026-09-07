@@ -14,7 +14,7 @@ export interface MyTrade {
   week: string; chain: Chain; symbol: string; token: string;
   openedAt: number; closedAt: number; holdMin: number;
   costUsd: number; proceedsUsd: number; pnlUsd: number; returnPct: number;
-  strategy: string; rulesSavedAt: number | null; manual: boolean;
+  strategy: string; rulesSavedAt: number | null; manual: boolean; copied?: boolean;
   volumeShare: number | null; selfDeployed: boolean; entryTx: string; exitTx: string;
 }
 export interface MyVersion { id: string; strategyId: string; chain: Chain; name: string; savedAt: number; strategy: unknown }
@@ -37,7 +37,7 @@ export function reviewPack(handle: string, strategies: StrategyRecord[], data: M
   out.push('## How TradeWarz works (context for the reader)');
   out.push('- I run one automated trading bot per chain (Solana, Robinhood Chain, Base, BNB Chain). Each bot follows rules I set: discovery filters (age, liquidity, market cap, volume, price change, buy/sell ratio, transaction counts), safety checks on the token contract, entry (size, budget, style, slippage), exits (take profit, stop loss, trailing stop, ladder steps, max hold time, liquidity-drain exit) and launch rules (creator\'s share, launch-block bundle, curve progress, launcher history).');
   out.push(`- Guardrails I cannot loosen: stop loss at most ${GUARDRAILS.stopLossMaxPct}%, liquidity-drain exit at or before ${GUARDRAILS.liquidityDrainExitMaxPct}% of the pool leaving, no buy above ${GUARDRAILS.maxBuyPctOfPoolLiquidity}% of pool liquidity, a daily loss breaker, at most ${GUARDRAILS.maxOpenPositions} open positions per chain, slippage under ${GUARDRAILS.slippageMaxPct}%.`);
-  out.push('- A "closed trade" is a full round trip (buy to final sell) read from the blockchain. "by hand" means I bought it manually from the scanner. A "write-off" is a position I removed because the token had no market left (a total loss).');
+  out.push('- A "closed trade" is a full round trip (buy to final sell) read from the blockchain. "by hand" means I bought it manually from the scanner; "(copied)" means the bot bought it because a wallet I follow bought it (copy trading), with my own size and exits. A "write-off" is a position I removed because the token had no market left (a total loss).');
   out.push('- Decisions are the bot\'s log: "skip" = the token failed a rule (the reason names the rule), "hold" = passed but waiting, "buy"/"exit" = trades, "error" = something failed.');
   out.push('');
   out.push('## My current rules');
@@ -50,7 +50,7 @@ export function reviewPack(handle: string, strategies: StrategyRecord[], data: M
   out.push('## Summary');
   out.push(`- Closed trades: ${trades.length} · wins: ${wins} (${trades.length ? Math.round((wins / trades.length) * 100) : 0}%) · capital deployed: ${usd(deployed)} · net: ${usd(pnl)} · return on deployed: ${deployed ? ((pnl / deployed) * 100).toFixed(1) : '0.0'}%`);
   const byStrat = new Map<string, MyTrade[]>();
-  for (const t of trades) { const k = `${CHAIN_LABEL[t.chain]} / ${t.strategy}`; byStrat.set(k, [...(byStrat.get(k) ?? []), t]); }
+  for (const t of trades) { const k = `${CHAIN_LABEL[t.chain]} / ${t.strategy}${t.copied ? ' (copied)' : ''}`; byStrat.set(k, [...(byStrat.get(k) ?? []), t]); }
   for (const [k, list] of byStrat) {
     const w = list.filter((t) => t.pnlUsd > 0).length; const d = list.reduce((a, t) => a + t.costUsd, 0); const p = list.reduce((a, t) => a + t.pnlUsd, 0);
     out.push(`- ${k}: ${list.length} trades · ${w} wins · net ${usd(p)} · return ${d ? ((p / d) * 100).toFixed(1) : '0.0'}% · avg hold ${Math.round(list.reduce((a, t) => a + t.holdMin, 0) / list.length)} min`);
@@ -59,7 +59,7 @@ export function reviewPack(handle: string, strategies: StrategyRecord[], data: M
   out.push(`## Closed trades (${trades.length}, newest first)`);
   out.push('| closed (UTC) | chain | token | rules | in | out | net | return | held |');
   out.push('|---|---|---|---|---|---|---|---|---|');
-  for (const t of trades.slice(0, 400)) out.push(`| ${when(t.closedAt)} | ${CHAIN_LABEL[t.chain]} | ${t.symbol || t.token.slice(0, 8)} | ${t.strategy} | ${usd(t.costUsd)} | ${usd(t.proceedsUsd)} | ${usd(t.pnlUsd)} | ${t.returnPct > 0 ? '+' : ''}${t.returnPct.toFixed(1)}% | ${t.holdMin} min |`);
+  for (const t of trades.slice(0, 400)) out.push(`| ${when(t.closedAt)} | ${CHAIN_LABEL[t.chain]} | ${t.symbol || t.token.slice(0, 8)} | ${t.strategy}${t.copied ? ' (copied)' : ''} | ${usd(t.costUsd)} | ${usd(t.proceedsUsd)} | ${usd(t.pnlUsd)} | ${t.returnPct > 0 ? '+' : ''}${t.returnPct.toFixed(1)}% | ${t.holdMin} min |`);
   out.push('');
   // What this tab knows and the hub does not: why the bot did what it did, and what is still open.
   const decisions = CHAINS.flatMap((c) => bots[c].state().decisions.map((d) => ({ ...d, chain: c }))).sort((a, b) => b.at - a.at).slice(0, 200);

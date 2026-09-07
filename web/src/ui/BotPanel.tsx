@@ -6,6 +6,7 @@ import type { Chain } from '@tradewarz/shared';
 import { botFor, type BotState } from '../engine/bot.js';
 import { CHAIN_LABEL } from './helpers.js';
 import { DecisionRow, OpenPositions, native } from './Positions.jsx';
+import { CopyCard } from './CopyCard.jsx';
 
 export function BotPanel({ chain, active, onTerminal }: { chain: Chain; active: boolean; onTerminal?: () => void }) {
   const bot = botFor(chain);
@@ -39,6 +40,8 @@ export function BotPanel({ chain, active, onTerminal }: { chain: Chain; active: 
       </div>
 
       <OpenPositions open={st.open} />
+
+      <CopyCard chain={chain} wallets={st.copyWallets} signals={st.signals} running={st.running} />
 
       <div class="decisions">
         <h3>Decisions <span class="muted small">newest first · why the bot did or did not act</span></h3>

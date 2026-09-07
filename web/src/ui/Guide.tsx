@@ -12,6 +12,7 @@ export const GUIDE_SECTIONS = [
   ['getting-in', 'Getting in'],
   ['wallets', 'Your two wallets'],
   ['bots', 'Bots and rules'],
+  ['copy', 'Copy trading'],
   ['terminal', 'The Terminal'],
   ['panels', 'Recently listed vs New listings'],
   ['score', 'The listing score, point by point'],
@@ -70,6 +71,13 @@ export function Guide({ section, onBack }: { section: GuideSection | null; onBac
         <p>Rules come in groups. <b>Discovery</b> decides what the bot looks at: age, liquidity, market cap, volume, price change, buy/sell ratio, transaction counts, quote asset, socials. <b>Safety</b> is about the token contract: mint and freeze authority, honeypot, sell tax, holder concentration, and what to do when a check cannot be made. <b>Entry</b> is size, budget, style (instant, pullback, breakout) and slippage. <b>Exits</b> are take profit, stop loss, trailing stop, ladder steps, maximum hold time and the liquidity-drain exit. <b>Launch rules</b> apply only to launches: the creator's own buy and share of supply, curve progress, the launcher's history, exempt wallets and the opening tax on pons, and the <a href="#g-bundle">bundle</a> ceiling. <b>Listing rules</b> apply only to coins that came through a catalogue listing.</p>
         <p><b>Guardrails</b> apply to every bot and cannot be loosened, only tightened: a stop loss no wider than {GUARDRAILS.stopLossMaxPct}%, a liquidity-drain exit at or before {GUARDRAILS.liquidityDrainExitMaxPct}% of the pool leaving, no buy larger than {GUARDRAILS.maxBuyPctOfPoolLiquidity}% of the pool's liquidity, a daily loss breaker at {GUARDRAILS.dailyLossBreakerPctOfBudget}% of the day's budget, at most {GUARDRAILS.maxOpenPositions} open positions per chain, slippage under {GUARDRAILS.slippageMaxPct}%.</p>
         <p>The bot trades only while this tab is open and unlocked. It sleeps when you lock the wallet or close the tab; positions and their exits resume when you come back.</p>
+
+        <h2 id="g-copy">Copy trading</h2>
+        <p>A bot can follow up to five wallets on its chain — "Copy wallets" in the rules. The hub watches those wallets on the chain itself (their transactions on Solana, pons curve trades on Robinhood Chain, token transfers on Base and BNB Chain) and, the moment one of them buys or sells, tells your tab. Nobody else sees those signals; they go only to the accounts following that wallet.</p>
+        <p><b>A copied buy is still your trade.</b> The bot buys the same token with <i>your</i> size, after <i>your</i> safety rules and every guardrail (pool-size cap, daily budget, loss breaker, open-position cap). Your discovery rules — age, liquidity, volume — are skipped unless you switch "also apply discovery rules" on, because the point of copying is that the wallet you follow is the reason to buy. Once in, your exits run exactly as for any other position: stop loss, ladder, take profit, trailing stop, drain exit.</p>
+        <p><b>Sells:</b> with "copy their sells" on, when the wallet sells a share of a token you copied from it, the bot sells the same share of yours. Your own exits still apply in between; whichever fires first wins.</p>
+        <p><b>Timing:</b> a signal older than your limit (30 seconds by default) is ignored — copying late is how you buy someone else's top. On Solana the hub usually sees a trade within a second or two; on Base and BNB Chain, within about ten. The Bot tab's Copy trading card shows every signal and what the bot did with it: copied, waited for price data, skipped and why, or nothing because the bot was off.</p>
+        <p><b>What it cannot see:</b> trades on a graduated pons pool (the router hides the trader), token-for-token swaps are read as a buy of one and a sale of the other, and a wallet firing more than twenty transactions a minute is a bot of its own — the hub reads the first twenty each minute. Following a wallet says nothing about whether it is any good; the leaderboard, not a screenshot, is the record.</p>
 
         <h2 id="g-terminal">The Terminal</h2>
         <p>The Terminal is the live scanner: every token the hub is following, on every chain, judged on the spot by your rules for its chain. A row is one token. Click it for the drawer with every fact and a Buy button; click ★ to keep it in Watching.</p>

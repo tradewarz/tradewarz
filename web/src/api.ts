@@ -1,7 +1,7 @@
 // The page's only conversation partner besides the chain RPCs. Every mutating call
 // carries the x-tradewarz header (a cross-site form cannot add it) and the session cookie.
 
-import type { ApiError, BoardView, Candidate, Chain, HubInfo, IntelView, ListingsView, NonceRequest, NonceResponse, SessionUser, StrategyRecord } from '@tradewarz/shared';
+import type { ApiError, BoardView, Candidate, Chain, CopyStatus, HubInfo, IntelView, ListingsView, NonceRequest, NonceResponse, SessionUser, StrategyRecord } from '@tradewarz/shared';
 import type { ReviewData } from './ui/Review.jsx';
 
 const q = (chain: Chain, week: string) => `chain=${encodeURIComponent(chain)}&week=${encodeURIComponent(week)}`;
@@ -42,10 +42,11 @@ export const api = {
   listings: (limit = 300) => call<ListingsView>('GET', `/api/listings?limit=${limit}`),
   intel: (limit = 200) => call<IntelView>('GET', `/api/intel?limit=${limit}`),
   ops: () => call<import('./ui/Ops.js').OpsData>('GET', '/api/ops'),
+  copy: () => call<CopyStatus>('GET', '/api/copy'),
 
   // the contest
   board: (chain: Chain, week = 'current') => call<BoardView>('GET', `/api/board?${q(chain, week)}`),
-  reportTrades: (chain: Chain, txs: string[], meta?: Record<string, { strategyId: string | null; manual: boolean }>) => call<{ ok: true; queued: number }>('POST', '/api/trades/report', { chain, txs, meta }),
+  reportTrades: (chain: Chain, txs: string[], meta?: Record<string, { strategyId: string | null; manual: boolean; copied?: boolean }>) => call<{ ok: true; queued: number }>('POST', '/api/trades/report', { chain, txs, meta }),
   research: (chain: Chain | 'all', week: string) => call<import('./ui/Research.js').ResearchView>('GET', `/api/research/strategies?chain=${chain}&week=${encodeURIComponent(week)}`),
   myTrades: () => call<import('./ui/MyData.js').MyTradesView>('GET', '/api/me/trades'),
   setHandle: (handle: string) => call<{ ok: true; handle: string }>('PUT', '/api/profile/handle', { handle }),

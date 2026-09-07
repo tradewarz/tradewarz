@@ -5,7 +5,7 @@
 
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import {
-  ENTRY_STYLES, PRESET_NAMES, WINDOWS, WINDOW_LABEL, describeStrategy, evaluate, guardrailViolations, parseStrategy, preset, presetBlurb,
+  ENTRY_STYLES, MAX_COPY_WALLETS, PRESET_NAMES, WINDOWS, WINDOW_LABEL, describeStrategy, evaluate, guardrailViolations, parseStrategy, preset, presetBlurb,
   type Chain, type PresetName, type Range, type Strategy, type StrategyRecord, type Window,
 } from '@tradewarz/shared';
 import { api, describeError } from '../api.js';
@@ -76,6 +76,27 @@ export function RulesForm({ draft, onChange }: { draft: Strategy; onChange: (d: 
       {draft.entry.style === 'breakout' && <Row label="Break above the high of the last" unit="min"><NumInput value={draft.entry.breakout.lookbackMinutes} onChange={(v) => set((d) => { d.entry.breakout.lookbackMinutes = Math.round(v ?? 30); })} step={1} /></Row>}
       <Row label="Slippage" unit="%"><NumInput value={draft.entry.slippagePct} onChange={(v) => set((d) => { d.entry.slippagePct = v ?? 3; })} step={0.5} /></Row>
       <Row label="Leave a token alone after closing it for" unit="min"><NumInput value={draft.entry.reentryCooldownMinutes} onChange={(v) => set((d) => { d.entry.reentryCooldownMinutes = Math.round(v ?? 30); })} step={5} /></Row>
+    </Section>
+
+    <Section title="Copy wallets" blurb={`Follow up to ${MAX_COPY_WALLETS} wallets on ${CHAIN_LABEL[chain]}. When one of them buys a token, the bot buys it too — with your size, your safety rules and every guardrail — and your exits take it from there. Paste a wallet's address (the trader), not a token's.`}>
+      <Row label="Wallets" hint={draft.copy.wallets.length ? 'a short label shows in place of the address' : 'none yet'}>
+        <div class="ladder">
+          {draft.copy.wallets.map((w, i) => (
+            <div class="ladder-row" key={i}>
+              <input class="input mono" style="flex:1;min-width:220px" placeholder={chain === 'solana' ? 'wallet address (base58)' : '0x… wallet address'} value={w.address} onInput={(e) => set((d) => { d.copy.wallets[i]!.address = (e.target as HTMLInputElement).value.trim(); })} />
+              <input class="input sm" style="width:120px" placeholder="label" maxLength={24} value={w.label} onInput={(e) => set((d) => { d.copy.wallets[i]!.label = (e.target as HTMLInputElement).value; })} />
+              <button class="btn sm" onClick={() => set((d) => { d.copy.wallets.splice(i, 1); })}>remove</button>
+            </div>
+          ))}
+          {draft.copy.wallets.length < MAX_COPY_WALLETS && <button class="btn sm" onClick={() => set((d) => { d.copy.wallets.push({ address: '', label: '' }); })}>add a wallet</button>}
+        </div>
+      </Row>
+      {draft.copy.wallets.length > 0 && (<>
+        <Row label="Copy their sells too" hint="sell the same share of your position when they sell theirs"><Toggle value={draft.copy.copySells} onChange={(v) => set((d) => { d.copy.copySells = v; })} /></Row>
+        <Row label="Ignore a signal older than" unit="s" hint="a late copy buys someone else's top"><NumInput value={draft.copy.maxAgeSec} onChange={(v) => set((d) => { d.copy.maxAgeSec = Math.round(v ?? 30); })} step={5} /></Row>
+        <Row label="Also apply your discovery rules to copied buys" hint="off = safety rules and guardrails only, which is the point of copying"><Toggle value={draft.copy.applyDiscovery} onChange={(v) => set((d) => { d.copy.applyDiscovery = v; })} /></Row>
+        <Row label="Follow only" hint="trade nothing but what these wallets trade; the scanner is ignored"><Toggle value={draft.copy.followOnly} onChange={(v) => set((d) => { d.copy.followOnly = v; })} /></Row>
+      </>)}
     </Section>
 
     <Section title="Exits" blurb="The stop loss and the liquidity-drain exit always exist; everything else is optional.">

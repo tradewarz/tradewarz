@@ -50,6 +50,7 @@ export function OpenPositions({ open, compact }: { open: Position[]; compact?: b
               <a href={dexscreenerUrl(p.chain, p.token)} target="_blank" rel="noopener" title="Open on DexScreener">{p.symbol}</a>
               <span class="muted small"> · {CHAIN_LABEL[p.chain]} · {ago(p.openedAt)} · {p.venue}</span>
               {p.manual && <span class="pill" title="bought by hand from the Terminal" style="margin-left:6px">by hand</span>}
+              {p.copiedFrom && <span class="pill" title={`copied from ${p.copiedFrom}`} style="margin-left:6px">copied {p.copyLabel || `${p.copiedFrom.slice(0, 4)}…${p.copiedFrom.slice(-4)}`}</span>}
               {p.managed === false && <span class="pill warn" title="the bot prices it but will not sell it; only you do" style="margin-left:4px">hand-held</span>}
             </div>
             <div class={`pnl ${g > 0 ? 'gain' : g < 0 ? 'loss' : ''}`}>{g >= 0 ? '+' : ''}{g.toFixed(1)}%</div>

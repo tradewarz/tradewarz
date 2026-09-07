@@ -28,6 +28,9 @@ export interface Position {
   managed?: boolean;
   /** Closed without a sale: the token had no market, so the whole entry was booked as a loss. The tokens are still in the wallet. */
   writtenOff?: boolean;
+  /** Opened by copying this followed wallet (its address) - shown as the label the person gave it. */
+  copiedFrom?: string;
+  copyLabel?: string;
 }
 export interface DayLedger { day: string; chain: Chain; spentWei: string; realizedWei: string; entries: number }
 export interface Cooldown { key: string; until: number; reason: string }

@@ -26,7 +26,7 @@ function remember(hashes: Set<string>): void {
   try { localStorage.setItem(SENT_KEY, JSON.stringify([...hashes].slice(-2000))); } catch { /* private mode: we re-report, which is free */ }
 }
 
-export interface ReportMeta { strategyId: string | null; manual: boolean }
+export interface ReportMeta { strategyId: string | null; manual: boolean; copied?: boolean }
 
 /** Every transaction this browser's bot has made and not yet reported, by chain, with which rules (or a hand buy) sent it. */
 async function pending(): Promise<Map<Chain, { hashes: string[]; meta: Record<string, ReportMeta> }>> {
@@ -36,7 +36,7 @@ async function pending(): Promise<Map<Chain, { hashes: string[]; meta: Record<st
     const hashes = [p.entryTx, ...p.exits.map((x) => x.tx)].filter((h): h is string => !!h && !already.has(h));
     if (!hashes.length) continue;
     const entry = out.get(p.chain) ?? { hashes: [], meta: {} };
-    const m: ReportMeta = { strategyId: p.strategyId === 'manual' || !p.strategyId ? null : p.strategyId, manual: !!p.manual };
+    const m: ReportMeta = { strategyId: p.strategyId === 'manual' || !p.strategyId ? null : p.strategyId, manual: !!p.manual, copied: !!p.copiedFrom };
     for (const h of hashes) { if (!entry.hashes.includes(h)) entry.hashes.push(h); entry.meta[h] = m; }
     out.set(p.chain, entry);
   }

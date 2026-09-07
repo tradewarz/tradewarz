@@ -6,10 +6,12 @@
 // mark message → update value/peak/liquidity → exits (drain, stop, ladder, take profit, trailing)
 //   → sell → ledger updated
 // tick message → time-based exits, balance refresh, day rollover, health
+// signal message → a wallet this bot follows traded: copy the buy (own size, safety rules, every rail)
+//   or the sell (same share of the position), never anything older than the copy rules allow
 //
 // Every decision is written down with its reasons so the Bot panel can show exactly why.
 
-import { GUARDRAILS, buyWithinPoolLimit, dailyBreakerTripped, evaluate, preset, type Candidate, type Chain, type Strategy, type StreamMessage } from '@tradewarz/shared';
+import { GUARDRAILS, buyWithinPoolLimit, dailyBreakerTripped, evaluate, evaluateSafety, preset, type Candidate, type Chain, type Strategy, type StreamMessage } from '@tradewarz/shared';
 import { adapters, baseAdapter, bscAdapter, robinhoodAdapter, solanaAdapter, type ChainAdapter } from './adapters.js';
 import { CHAINS, type NativeSymbol } from '@tradewarz/shared';
 import { botStore, utcDay, type Cooldown, type DayLedger, type Position } from './store.js';
@@ -32,6 +34,12 @@ function addTombstone(id: string): void {
   try { localStorage.setItem(TOMBSTONES_KEY, JSON.stringify([...s].slice(-500))); } catch { /* private mode */ }
 }
 export interface Decision { at: number; token: string; symbol: string; verdict: Verdict; reasons: string[]; tx?: string }
+type Signal = Extract<StreamMessage, { kind: 'signal' }>;
+/** A copied buy whose token the hub has not priced yet: acted on when its candidate arrives, dropped when it goes stale. */
+interface PendingCopy { signal: Signal; label: string; expires: number }
+/** How long past the copy rules' age limit a pending copy waits for the hub's first price snapshot. */
+const PENDING_GRACE_MS = 45_000;
+const shortAddr = (a: string): string => `${a.slice(0, 4)}…${a.slice(-4)}`;
 
 export interface BotState {
   chain: Chain;
@@ -55,6 +63,9 @@ export interface BotState {
   lastError: string | null;
   nativeUsd: number | null;
   wakeLock: boolean;
+  /** The wallets this bot's rules follow, and the latest signals from them with what the bot did. */
+  copyWallets: Strategy['copy']['wallets'];
+  signals: Bot['signals'];
 }
 
 const pct = (n: number) => `${n >= 0 ? '+' : ''}${n.toFixed(1)}%`;
@@ -98,6 +109,9 @@ export class Bot {
   private deadSince = new Map<string, number>();
   private lastVerdict = new Map<string, string>();
   private samples = new Map<string, Array<{ t: number; p: number }>>();
+  private pendingCopies = new Map<string, PendingCopy>();
+  /** The last few signals from followed wallets, for the Bot panel. */
+  signals: Array<Signal & { label: string; action: string }> = [];
   private decisions: Decision[] = [];
   private listeners = new Set<() => void>();
   private off: (() => void) | null = null;
@@ -308,6 +322,7 @@ export class Bot {
       open: this.openPositions(), closed: [...this.positions.values()].filter((p) => p.status === 'closed').sort((a, b) => (b.exits.at(-1)?.at ?? 0) - (a.exits.at(-1)?.at ?? 0)).slice(0, 20),
       spentToday: BigInt(day.spentWei), realizedToday: BigInt(day.realizedWei), breakerTripped: this.breaker(), decisions: this.decisions.slice(-60).reverse(),
       lastError: this.lastError, nativeUsd: this.a.nativeUsd(), wakeLock: !!this.wakeLock,
+      copyWallets: this.strategy?.copy.wallets ?? [], signals: this.signals,
     };
   }
 
@@ -351,15 +366,75 @@ export class Bot {
       this.changed();
       return;
     }
+    if (m.kind === 'signal' && m.chain === this.chain) { await this.onSignal(m); return; }
     if (!this.running || !this.strategy) return;
-    if (m.kind === 'candidate' && m.candidate.chain === this.chain) await this.consider(m.candidate);
+    if (m.kind === 'candidate' && m.candidate.chain === this.chain) {
+      const pending = this.pendingCopies.get(this.key(m.candidate.address));
+      if (pending) { this.pendingCopies.delete(this.key(m.candidate.address)); if (Date.now() <= pending.expires) await this.copyBuy(m.candidate, pending.signal, pending.label); }
+      else await this.consider(m.candidate);
+    }
     else if (m.kind === 'hello') { for (const c of m.candidates) if (c.chain === this.chain) await this.consider(c); }
+  }
+
+  // ---- copy trading -------------------------------------------------------------------------------
+  /** A wallet this bot follows just traded. Buys are copied with this bot's size and rules; sells as the same share. */
+  private async onSignal(m: Signal): Promise<void> {
+    const s = this.strategy;
+    if (!s) return;
+    const w = s.copy.wallets.find((x) => this.same(x.address, m.from));
+    if (!w) return;
+    const label = w.label || shortAddr(w.address);
+    const symbol = m.symbol ?? hubStream.candidate(this.chain, m.token)?.symbol ?? shortAddr(m.token);
+    const ageSec = Math.max(0, (Date.now() - m.at) / 1000);
+    const record = (action: string) => { this.signals.unshift({ ...m, label, action }); if (this.signals.length > 40) this.signals.length = 40; this.changed(); };
+    if (!this.running) { record('bot is off'); this.note('info', m.token, symbol, [`${label} ${m.side === 'buy' ? 'bought' : 'sold'} ${symbol}; the bot is off, so nothing was copied`]); return; }
+    if (ageSec > s.copy.maxAgeSec) { record(`too old (${ageSec.toFixed(0)} s)`); this.note('skip', m.token, symbol, [`${label} ${m.side === 'buy' ? 'bought' : 'sold'} ${symbol} ${ageSec.toFixed(0)} s ago, past your ${s.copy.maxAgeSec} s copy limit`]); return; }
+    const key = this.key(m.token);
+    if (m.side === 'buy') {
+      if ([...this.positions.values()].some((p) => p.status === 'open' && this.same(p.token, m.token))) { record('already holding'); return; }
+      const c = hubStream.candidate(this.chain, m.token);
+      if (c) { record('copying'); await this.copyBuy(c, m, label); return; }
+      this.pendingCopies.set(key, { signal: m, label, expires: m.at + s.copy.maxAgeSec * 1000 + PENDING_GRACE_MS });
+      record('waiting for price data');
+      this.note('hold', m.token, symbol, [`${label} bought ${symbol}${m.nativeAmount ? ` for ${m.nativeAmount} ${this.a.native}` : ''}; waiting for the hub's first price snapshot before copying`]);
+      return;
+    }
+    // A sell: copy it onto the position(s) this wallet's buy opened, as the same share of what is held.
+    if (!s.copy.copySells) { record('sells not copied'); return; }
+    const mine = this.openPositions().filter((p) => this.same(p.token, m.token) && p.copiedFrom && this.same(p.copiedFrom, m.from) && !this.busy.has(p.id));
+    if (!mine.length) { record('no copied position'); return; }
+    const fraction = m.fractionPct === null ? 100 : Math.min(100, Math.max(1, m.fractionPct));
+    record(`selling ${fraction}%`);
+    for (const pos of mine) {
+      const held = BigInt(pos.tokens);
+      const tokens = fraction >= 90 ? held : (held * BigInt(fraction)) / 100n;
+      if (tokens <= 0n) continue;
+      await this.sell(pos, tokens, `copied ${label}, who sold ${fraction}% of theirs`);
+    }
+  }
+
+  /** The buy half of a copy: safety rules (plus discovery rules if the copy rules say so), every rail, then the order. */
+  private async copyBuy(c: Candidate, m: Signal, label: string): Promise<void> {
+    const s = this.strategy;
+    if (!s || !this.running) return;
+    const key = this.key(c.address);
+    if (this.busy.has(key)) return;
+    if ([...this.positions.values()].some((p) => p.status === 'open' && this.same(p.token, c.address))) return;
+    const cd = this.cooldowns.get(`${this.chain}:${key}`);
+    if (cd && cd.until > Date.now()) { this.note('skip', c.address, c.symbol, [`${label} bought ${c.symbol}, but it is in your cooldown (${cd.reason})`]); return; }
+    const ev = s.copy.applyDiscovery ? evaluate(c, s) : evaluateSafety(c, s);
+    if (!ev.pass) { this.note('skip', c.address, c.symbol, [`${label} bought ${c.symbol}; not copied:`, ...ev.reasons.slice(0, 3)]); return; }
+    const size = this.a.parse(s.entry.sizeNative);
+    const rails = this.rails(c, size);
+    if (rails.length) { this.note('skip', c.address, c.symbol, [`${label} bought ${c.symbol}; not copied:`, ...rails]); return; }
+    await this.buy(c, size, { copiedFrom: m.from, copyLabel: label });
   }
 
   private async consider(c: Candidate): Promise<void> {
     const s = this.strategy!;
     const key = this.key(c.address);
     if (this.busy.has(key)) return;
+    if (s.copy.followOnly) { this.setOnce('followOnly', 'on', () => this.note('info', '', 'bot', ['follow-only is on: the bot trades what your copied wallets trade and ignores the scanner'])); return; }
     if ([...this.positions.values()].some((p) => p.status === 'open' && this.same(p.token, c.address))) return;
     const cd = this.cooldowns.get(`${this.chain}:${key}`);
     if (cd && cd.until > Date.now()) return;
@@ -381,19 +456,8 @@ export class Bot {
     }
 
     // platform rails and budget
-    const rails: string[] = [];
-    const open = this.openPositions().length;
-    if (open >= s.entry.maxOpenPositions) rails.push(`${open} position${open === 1 ? '' : 's'} open, your maximum is ${s.entry.maxOpenPositions}`);
     const size = this.a.parse(s.entry.sizeNative);
-    const day = this.today();
-    if (BigInt(day.spentWei) + size > this.a.parse(s.entry.dailyBudgetNative)) rails.push(`today's budget is used up (${this.a.format(BigInt(day.spentWei))} of ${s.entry.dailyBudgetNative} ${this.a.native})`);
-    if (this.breaker()) rails.push(`the daily loss breaker is tripped (${this.a.format(BigInt(day.realizedWei))} ${this.a.native} today); new entries resume tomorrow UTC`);
-    if (this.balance !== null && this.balance < size + this.a.gasReserve) rails.push(`the bot wallet holds ${this.a.format(this.balance)} ${this.a.native}; one buy needs ${this.a.format(size + this.a.gasReserve)} ${this.a.native} including fees. Deposit more or lower the buy size.`);
-    const usd = this.a.nativeUsd();
-    if (usd && c.liquidityUsd !== null) {
-      const lim = buyWithinPoolLimit(s.entry.sizeNative * usd, c.liquidityUsd);
-      if (!lim.ok) rails.push(`${s.entry.sizeNative} ${this.a.native} is more than ${GUARDRAILS.maxBuyPctOfPoolLiquidity}% of this pool's liquidity (max about $${lim.maxUsd.toFixed(0)} here)`);
-    }
+    const rails = this.rails(c, size);
     if (rails.length) {
       const rs = 'rail:' + rails.join('|');
       if (this.lastVerdict.get(key) !== rs) { this.lastVerdict.set(key, rs); this.note('skip', c.address, c.symbol, rails); }
@@ -421,7 +485,25 @@ export class Bot {
   }
   private setOnce(key: string, sig: string, fn: () => void): void { if (this.lastVerdict.get(key) !== sig) { this.lastVerdict.set(key, sig); fn(); } }
 
-  private async buy(c: Candidate, size: bigint): Promise<void> {
+  /** The platform rails and the budget, as sentences: empty means the buy may go ahead. */
+  private rails(c: Candidate, size: bigint): string[] {
+    const s = this.strategy!;
+    const rails: string[] = [];
+    const open = this.openPositions().length;
+    if (open >= s.entry.maxOpenPositions) rails.push(`${open} position${open === 1 ? '' : 's'} open, your maximum is ${s.entry.maxOpenPositions}`);
+    const day = this.today();
+    if (BigInt(day.spentWei) + size > this.a.parse(s.entry.dailyBudgetNative)) rails.push(`today's budget is used up (${this.a.format(BigInt(day.spentWei))} of ${s.entry.dailyBudgetNative} ${this.a.native})`);
+    if (this.breaker()) rails.push(`the daily loss breaker is tripped (${this.a.format(BigInt(day.realizedWei))} ${this.a.native} today); new entries resume tomorrow UTC`);
+    if (this.balance !== null && this.balance < size + this.a.gasReserve) rails.push(`the bot wallet holds ${this.a.format(this.balance)} ${this.a.native}; one buy needs ${this.a.format(size + this.a.gasReserve)} ${this.a.native} including fees. Deposit more or lower the buy size.`);
+    const usd = this.a.nativeUsd();
+    if (usd && c.liquidityUsd !== null) {
+      const lim = buyWithinPoolLimit(s.entry.sizeNative * usd, c.liquidityUsd);
+      if (!lim.ok) rails.push(`${s.entry.sizeNative} ${this.a.native} is more than ${GUARDRAILS.maxBuyPctOfPoolLiquidity}% of this pool's liquidity (max about $${lim.maxUsd.toFixed(0)} here)`);
+    }
+    return rails;
+  }
+
+  private async buy(c: Candidate, size: bigint, copy?: { copiedFrom: string; copyLabel: string }): Promise<void> {
     const s = this.strategy!;
     const key = this.key(c.address);
     this.busy.add(key);
@@ -434,6 +516,7 @@ export class Bot {
         token: c.address, curve: this.a.curveOf(c), symbol: c.symbol, name: c.name, openedAt: Date.now(), entryTx: res.hash, entryWei: size.toString(),
         tokens: res.tokens.toString(), tokensAtEntry: res.tokens.toString(), lastWei: size.toString(), lastAt: Date.now(), peakWei: size.toString(),
         liqPeakWei: this.a.liquidityPeak(c), ladderDone: [], status: 'open', exits: [], venue: res.venue,
+        ...(copy ? { copiedFrom: copy.copiedFrom, copyLabel: copy.copyLabel } : {}),
       };
       this.positions.set(pos.id, pos);
       await botStore.savePosition(pos);
@@ -442,7 +525,7 @@ export class Bot {
       await botStore.saveLedger(day);
       await hubStream.watch(this.chain, c.address, res.tokens);
       this.balanceAt = 0; void this.refreshBalance(true);
-      this.note('buy', c.address, c.symbol, [`bought ${this.a.format(size)} ${this.a.native} of ${c.symbol} ${res.note}`], res.hash);
+      this.note('buy', c.address, c.symbol, [`${copy ? `copied ${copy.copyLabel}: ` : ''}bought ${this.a.format(size)} ${this.a.native} of ${c.symbol} ${res.note}`], res.hash);
     } catch (e) {
       this.note('error', c.address, c.symbol, [`buy failed: ${describeRevert(e)}`]);
       await this.cooldown(key, 2, 'buy failed');

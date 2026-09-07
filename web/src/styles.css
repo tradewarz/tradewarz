@@ -804,3 +804,13 @@ table.launches tbody tr.sel { background: rgba(196, 30, 58, 0.12); }
   .row .v.inline { flex-wrap: wrap; }
   .row .v.inline .input { flex: 1 1 100%; }
 }
+
+/* copy trading card (Bot tab) */
+.copycard { margin-top: 14px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+.copycard h3 { margin: 0 0 8px; font-size: 14px; }
+.copycard .rows .row { display: flex; gap: 10px; padding: 4px 0; border-bottom: 1px dashed var(--line); }
+.copycard .rows .row:last-child { border-bottom: 0; }
+.copycard .rows .k { min-width: 110px; font-weight: 600; }
+.copycard .signals { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+.copycard .signal { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; font-size: 13px; }
+.copycard .signal .pill { text-transform: uppercase; font-size: 10px; letter-spacing: .04em; }
