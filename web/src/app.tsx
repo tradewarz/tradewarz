@@ -3,7 +3,7 @@ import type { HubInfo, SessionUser, StrategyRecord } from '@tradewarz/shared';
 import { api, describeError } from './api.js';
 import { registerBotWallets } from './botwallet/register.js';
 import { destroyVault, loadVault, type VaultBlob } from './botwallet/vault.js';
-import { isUnlocked, lock, onWalletChange } from './botwallet/wallet.js';
+import { isUnlocked, lock, onWalletChange, setWithdrawTargets } from './botwallet/wallet.js';
 import { Boundary } from './ui/Boundary.jsx';
 import { Dashboard } from './ui/Dashboard.jsx';
 import { CreateWallet, PickBot, RestoreWallet, SaveWords, UnlockScreen, Welcome } from './ui/Onboarding.jsx';
@@ -48,6 +48,9 @@ export function App() {
     return onWalletChange(() => setUnlocked(isUnlocked()));
   }, []);
 
+  // Withdrawals may only go to the sign-in wallets on the account; the wallet module checks this on every send.
+  useEffect(() => { setWithdrawTargets((me?.wallets ?? []).filter((w) => w.role === 'gate').map((w) => w.address)); }, [me]);
+
   // Strategies follow the account.
   useEffect(() => {
     if (!me) { setStrategies(null); return; }
@@ -72,7 +75,7 @@ export function App() {
   if (hub === 'loading' || (me && vault === undefined)) body = <p class="muted">Connecting…</p>;
   else if (hub === 'offline') body = <div class="notice bad">The hub is not answering. If you run it yourself: <code>npm run dev:hub</code>, then reload.</div>;
   else if (!me) body = <PublicHome info={info!} me={null} onSignedIn={setMe} onGuide={() => showGuide('what')} guideSection={guide} />;
-  else if (info!.gateMode === 'token' && !me.gate.passed) body = <PublicHome info={info!} me={me} onSignedIn={setMe} onGuide={() => showGuide('what')} guideSection={guide} onSignOut={signOut} />;
+  else if (info!.gateMode !== 'open' && !me.gate.passed) body = <PublicHome info={info!} me={me} onSignedIn={setMe} onGuide={() => showGuide('what')} guideSection={guide} onSignOut={signOut} />;
   else if (vault === null) body = restoring ? <RestoreWallet onDone={(v) => { setVault(v); setRestoring(false); }} onBack={() => setRestoring(false)} /> : <CreateWallet onDone={setVault} onRestore={() => setRestoring(true)} />;
   else if (!unlocked) body = <UnlockScreen vault={vault!} onDone={() => setUnlocked(true)} onForget={forgetWallet} />;
   else if (!vault!.backedUp) body = <SaveWords vault={vault!} onDone={setVault} />;
@@ -92,7 +95,7 @@ export function App() {
           </a>
           <span class="spacer" />
           <a class="head-link" href="#guide" onClick={(e) => { e.preventDefault(); showGuide('what'); }}>Guide</a>
-          {info && <span class={`pill gate-pill ${info.gateMode === 'open' ? 'warn' : me?.gate.passed ? 'ok' : ''}`} title={me?.gate.reason ?? ''}>{info.gateMode === 'open' ? 'gate open · setup' : <><span>{info.gateRequired.toLocaleString('en-US')}</span> TRADEWARZ to enter</>}</span>}
+          {info && <span class={`pill gate-pill ${info.gateMode === 'open' ? 'warn' : me?.gate.passed ? 'ok' : ''}`} title={me?.gate.reason ?? ''}>{info.gateMode === 'open' ? 'gate open · setup' : info.gateMode === 'closed' ? 'trading opens at token launch' : <><span>{info.gateRequired.toLocaleString('en-US')}</span> TRADEWARZ to enter</>}</span>}
           {me && <button class="btn sm signout" onClick={signOut}>Sign out</button>}
         </div>
       </header>

@@ -1,0 +1,63 @@
+# Render blueprint for the TradeWarz hub: one Node service serving the API and the built page,
+# with a persistent disk for the SQLite database and the intel snapshots. Read HOSTING.md first.
+#
+# One instance only: the database is a single SQLite file and the live stream is in-process state.
+# Disks need a paid instance (Starter or above) and mean a short restart on each deploy instead of a
+# zero-downtime swap - that is the trade for keeping sessions, strategies and the leaderboard.
+services:
+  - type: web
+    name: tradewarz
+    runtime: node
+    plan: starter
+    region: oregon
+    branch: main
+    numInstances: 1
+    buildCommand: npm install --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    disk:
+      name: tradewarz-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: 22.18.0
+      # Render hands the port in PORT; the hub reads it. It must listen on every interface behind Render's proxy.
+      - key: TW_HOST
+        value: 0.0.0.0
+      # Render's proxy sits in front: believe the last x-forwarded-for hop for rate limits (set to cloudflare if Cloudflare fronts Render).
+      - key: TW_TRUST_PROXY
+        value: proxy
+      # A public hub: the gate fails closed until TW_TOKEN_* are set, and the session cookie is Secure.
+      - key: TW_PUBLIC
+        value: "1"
+      - key: TW_COOKIE_SECURE
+        value: "1"
+      # The hub's working directory is hub/, so the page is one level up.
+      - key: TW_WEB_DIST
+        value: ../web/dist
+      # Everything the hub remembers lives on the disk.
+      - key: TW_DB
+        value: /var/data/tradewarz.sqlite
+      # Fill these in the dashboard (they are never in the repo):
+      - key: TW_DOMAIN
+        sync: false        # the hostname people see, e.g. tradewarz.app - it is inside the message they sign
+      - key: TW_RPC_SOLANA
+        sync: false        # the hub's own Helius URL (private)
+      - key: TW_PUBLIC_RPC_SOLANA
+        sync: false        # the browser's Helius URL: a SEPARATE key locked to TW_DOMAIN in the Helius dashboard
+      - key: TW_OWNER_WALLETS
+        sync: false        # your sign-in wallet address(es), comma-separated: unlocks Review, Research and Ops
+      - key: TW_TOKEN_SOLANA
+        sync: false        # the TRADEWARZ mint once it exists; until then the gate stays closed on this hub
+      - key: TW_TOKEN_ROBINHOOD
+        sync: false        # the Robinhood Chain contract, if the token lives there too
+      - key: TW_PUMPPORTAL_KEY
+        sync: false        # optional: a funded PumpPortal key streams pump.fun trades
+      - key: TW_RPC_BASE
+        sync: false        # optional keyed RPCs for Base and BNB Chain (public endpoints are the default)
+      - key: TW_RPC_BSC
+        sync: false
+      - key: TW_PRIZES
+        value: "0"

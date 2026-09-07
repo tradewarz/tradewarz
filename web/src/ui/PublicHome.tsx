@@ -64,8 +64,10 @@ export function GateScreen({ info, me, onChange, onSignOut }: { info: HubInfo; m
   return (
     <section class="screen gate-screen">
       <div class="card">
-        <h1>Hold {need} TRADEWARZ to enter</h1>
-        <p class="big">You're signed in. Trading — bots, buying, positions — unlocks once one of your linked wallets holds {need} TRADEWARZ. Until then everything below is yours to watch.</p>
+        <h1>{info.gateMode === 'closed' ? 'Trading opens when TRADEWARZ launches' : `Hold ${need} TRADEWARZ to enter`}</h1>
+        <p class="big">{info.gateMode === 'closed'
+          ? `You're signed in. Trading — bots, buying, positions — is switched off on this hub until the TRADEWARZ token exists; once it does, holding ${need} in a linked wallet lets you in. Until then everything below is yours to watch.`
+          : `You're signed in. Trading — bots, buying, positions — unlocks once one of your linked wallets holds ${need} TRADEWARZ. Until then everything below is yours to watch.`}</p>
         <div class="rows">
           {gates.map((w) => {
             const b = me.gate.balances.find((x) => x.address === w.address);

@@ -80,6 +80,8 @@ export interface ClosedTrade {
   volumeShare: number | null;
   /** The trader deployed this token. Set by the indexer from the launch record. */
   selfDeployed: boolean;
+  /** A leg of this trade could not be priced from the chain (several tokens in one transaction, no state to read). Shown, never scored. */
+  unpriced?: boolean;
 }
 
 export const tradePnlUsd = (t: ClosedTrade): number => t.proceedsUsd - t.costUsd;
@@ -103,7 +105,7 @@ export const LEADERBOARD_RULES = {
   reviewedPlaces: 3,
 } as const;
 
-export type ExclusionCode = 'self-deployed' | 'volume-share' | 'wrong-wallet' | 'out-of-week';
+export type ExclusionCode = 'self-deployed' | 'volume-share' | 'wrong-wallet' | 'out-of-week' | 'unpriced';
 
 export interface ExcludedTrade { trade: ClosedTrade; code: ExclusionCode; reason: string }
 
@@ -165,6 +167,8 @@ export function scoreEntry(input: BoardEntryInput, opts: ScoreOptions): BoardEnt
       excluded.push({ trade: t, code: 'out-of-week', reason: 'closed outside this week' });
     } else if (t.wallet.toLowerCase() !== wallet) {
       excluded.push({ trade: t, code: 'wrong-wallet', reason: 'made by a wallet that was not your entry for this week' });
+    } else if (t.unpriced) {
+      excluded.push({ trade: t, code: 'unpriced', reason: `a leg of the ${t.symbol || 'token'} trade could not be priced from the chain, so it is not counted` });
     } else if (t.selfDeployed) {
       excluded.push({ trade: t, code: 'self-deployed', reason: `you deployed ${t.symbol || 'this token'} yourself` });
     } else if (t.volumeShare !== null && t.volumeShare > rules.maxVolumeShare) {

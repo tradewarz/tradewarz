@@ -3,7 +3,7 @@
 // only proves the person controls the wallet. The hub builds it, the wallet signs it,
 // the hub verifies the signature against the exact same text.
 
-import type { Chain } from './strategy.js';
+import { CHAIN_NAME, isAddressFor, type Chain } from './strategy.js';
 
 export const AUTH_PURPOSES = ['sign-in', 'register-bot-wallet'] as const;
 export type AuthPurpose = (typeof AUTH_PURPOSES)[number];
@@ -24,7 +24,7 @@ export function buildSignInMessage(f: SignInFields): string {
     `TradeWarz ${what}`,
     '',
     `Wallet: ${f.address}`,
-    `Chain: ${f.chain === 'solana' ? 'Solana' : 'Robinhood Chain'}`,
+    `Chain: ${CHAIN_NAME[f.chain]}`,
     `Purpose: ${f.purpose}`,
     `Nonce: ${f.nonce}`,
     `Issued at: ${f.issuedAt}`,
@@ -38,9 +38,7 @@ export function buildSignInMessage(f: SignInFields): string {
 export const SOLANA_ADDRESS_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 export const EVM_ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
 
-export function isAddressForChain(chain: Chain, address: string): boolean {
-  return chain === 'solana' ? SOLANA_ADDRESS_RE.test(address) : EVM_ADDRESS_RE.test(address);
-}
+export const isAddressForChain = isAddressFor;
 
 /** Addresses compare case-insensitively on EVM and exactly on Solana. */
 export function normalizeAddress(chain: Chain, address: string): string {

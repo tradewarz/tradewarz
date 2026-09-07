@@ -91,12 +91,23 @@ export async function maxWithdrawable(chain: Chain, to: string, rpcUrl: string):
   return Number(formatEther(c.max));
 }
 
+// Where a withdrawal may go: the sign-in wallets linked to the account, set by the page from the session.
+// This is not a cryptographic control - the key lives in this browser, so anything running in the tab
+// could move funds - but it makes the one code path that sends out of the bot wallet check its destination,
+// so a bug or a stray call cannot pick an address the person never linked.
+let withdrawTargets = new Set<string>();
+export function setWithdrawTargets(addresses: string[]): void { withdrawTargets = new Set(addresses.map((a) => a.toLowerCase())); }
+function assertWithdrawTarget(to: string): void {
+  if (!withdrawTargets.has(to.toLowerCase())) throw new Error('Withdrawals only go to a sign-in wallet linked to your account (Account tab).');
+}
+
 /**
- * Withdraw from the bot wallet to `to` (the page only ever passes a linked gate wallet). "all", or an
- * amount at or above the ceiling, sends everything that can leave after gas and a small reserve.
+ * Withdraw from the bot wallet to `to`, which must be a linked sign-in wallet. "all", or an amount at or
+ * above the ceiling, sends everything that can leave after gas and a small reserve.
  */
 export async function withdraw(chain: Chain, to: string, amount: number | 'all', rpcUrl: string): Promise<{ hash: string; amount: number }> {
   if (!keys) throw new Error('Unlock the bot wallet first.');
+  assertWithdrawTarget(to);
   if (chain === 'solana') {
     const conn = new Connection(rpcUrl, 'confirmed');
     const from = keys.solana.publicKey;

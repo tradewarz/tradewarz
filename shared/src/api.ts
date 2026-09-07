@@ -14,8 +14,12 @@ export interface LinkedWallet { chain: Chain; address: string; role: WalletRole;
 
 export interface GateBalance { chain: Chain; address: string; balance: number | null; required: number; error?: string }
 export interface GateStatus {
-  /** 'open' = no token configured yet (development), everyone passes and the page says so. */
-  mode: 'open' | 'token';
+  /**
+   * 'open' = no token configured yet (development): everyone passes and the page says so.
+   * 'token' = holders of the gate amount pass. 'closed' = a public hub without a token yet:
+   * everyone may look, nobody trades, and the page says trading opens at launch.
+   */
+  mode: 'open' | 'token' | 'closed';
   passed: boolean;
   checkedAt: number | null;
   balances: GateBalance[];
@@ -47,7 +51,7 @@ export interface ApiError { error: string; code?: string; problems?: string[] }
 export interface HubInfo {
   name: 'tradewarz';
   version: string;
-  gateMode: 'open' | 'token';
+  gateMode: 'open' | 'token' | 'closed';
   gateRequired: number;
   chains: Chain[];
   domain: string;

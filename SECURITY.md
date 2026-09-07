@@ -32,7 +32,11 @@ CoinMarketCap, GoPlus, PumpPortal, Jupiter, KyberSwap, public RPCs) and the wall
   password (PBKDF2, AES-GCM) in IndexedDB. It is decrypted into memory only for the open tab.
 - The hub has no endpoint that accepts a key, a phrase or a signed transaction; it receives
   addresses, signatures over its own sign-in messages, strategies, and transaction hashes.
-- Withdrawals from the bot wallet can only go to a sign-in wallet linked to the same account.
+- The page only offers withdrawals to a sign-in wallet linked to the same account, and the code
+  path that signs a withdrawal refuses any other destination. This is a control in the page, not a
+  cryptographic one: the key lives in the browser, so anything that runs in the tab could move
+  funds — which is why the content security policy allows no third-party scripts, and why a way
+  to run script in the page counts as a funds-at-risk bug.
 - Nothing prints, logs or persists a mnemonic or a private key, including in tests.
 
 If you find code that contradicts any of these, that is a bug we want to hear about.
