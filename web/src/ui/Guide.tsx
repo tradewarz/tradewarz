@@ -64,6 +64,7 @@ export function Guide({ section, onBack }: { section: GuideSection | null; onBac
 
         <h2 id="g-getting-in">Getting in</h2>
         <p>Entry is gated by holding TRADEWARZ. You sign in with the wallet that holds it — Phantom on Solana or MetaMask on an EVM chain — by signing a message; no transaction, no gas. The hub checks the balance, then remembers your account (addresses, signatures, your bot's rules — nothing more). The Account tab shows the gate result, lets you link the other chain's wallet, and sets the name shown on the board.</p>
+        <p>The check looks at your <b>sign-in</b> wallets, never the bot wallet: keep TRADEWARZ where you keep it, and fund the bot only with what it trades. Any one linked wallet holding the amount, on either chain, is enough. It is re-checked at every sign-in, on "Re-check the gate", and about every five minutes while you use the site; if a balance cannot be read for a moment, the last good answer stands. Drop below the amount and trading switches off on the next check — bots stop, nothing new is bought — but your open positions stay priced and can still be sold, and you can still withdraw.</p>
 
         <h2 id="g-wallets">Your two wallets</h2>
         <p><b>The gate wallet</b> is the one you signed in with. It holds TRADEWARZ, funds your bot by deposit, and is the only place withdrawals can go.</p>

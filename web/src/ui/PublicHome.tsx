@@ -23,8 +23,10 @@ const previewStrategies = (): StrategyRecord[] => {
   return CHAINS.map((c) => ({ id: `preview:${c}`, chain: c, strategy: preset('balanced', c), active: false, createdAt: now, updatedAt: now }));
 };
 
-export function PublicHome({ info, me, onSignedIn, onGuide, guideSection, onSignOut }: {
+export function PublicHome({ info, me, onSignedIn, onGuide, guideSection, onSignOut, onManage }: {
   info: HubInfo; me: SessionUser | null; onSignedIn: (me: SessionUser) => void; onGuide: () => void; guideSection: GuideSection | null; onSignOut?: () => void;
+  /** Set when this browser holds a bot wallet: lets a person behind a closed gate in to sell and withdraw what they already hold. */
+  onManage?: () => void;
 }) {
   const [tab, setTab] = useState<PublicTab>(guideSection ? 'guide' : 'scanner');
   // The header's Guide link (and #guide links) open the Guide tab here.
@@ -33,7 +35,7 @@ export function PublicHome({ info, me, onSignedIn, onGuide, guideSection, onSign
   const signIn = () => { document.querySelector('.hero.welcome, .gate-screen')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
   return (
     <div class="public-home">
-      {me ? <GateScreen info={info} me={me} onChange={onSignedIn} onSignOut={onSignOut} /> : <Welcome info={info} onSignedIn={onSignedIn} onGuide={onGuide} teaser={false} />}
+      {me ? <GateScreen info={info} me={me} onChange={onSignedIn} onSignOut={onSignOut} onManage={onManage} /> : <Welcome info={info} onSignedIn={onSignedIn} onGuide={onGuide} teaser={false} />}
       <div class="dash-shell wide public">
         <div class="dash-tabs" role="tablist">
           {(['scanner', 'board', 'guide'] as PublicTab[]).map((t) => (
@@ -51,7 +53,7 @@ export function PublicHome({ info, me, onSignedIn, onGuide, guideSection, onSign
 }
 
 /** Signed in, but no linked wallet holds the gate yet: balances, the way in, and where the token lives. */
-export function GateScreen({ info, me, onChange, onSignOut }: { info: HubInfo; me: SessionUser; onChange: (me: SessionUser) => void; onSignOut?: () => void }) {
+export function GateScreen({ info, me, onChange, onSignOut, onManage }: { info: HubInfo; me: SessionUser; onChange: (me: SessionUser) => void; onSignOut?: () => void; onManage?: () => void }) {
   const [busy, setBusy] = useState(false);
   const gates = me.wallets.filter((w) => w.role === 'gate');
   const missing = (['solana', 'robinhood'] as const).filter((c) => !gates.some((w) => w.chain === c));
@@ -90,6 +92,7 @@ export function GateScreen({ info, me, onChange, onSignOut }: { info: HubInfo; m
         </div>
         <div class="btnrow" style="margin-top:14px">
           <button class="btn primary" disabled={busy} onClick={() => void recheck()}>{busy ? 'Checking…' : 'Check again'}</button>
+          {onManage && <button class="btn" onClick={onManage} title="This browser has a bot wallet: open it to sell what it holds and withdraw. Nothing new can be bought while the gate is closed.">Manage what you already hold</button>}
           {onSignOut && <button class="btn" onClick={onSignOut}>Sign out</button>}
           <span class="muted small">{me.gate.reason}</span>
         </div>

@@ -49,9 +49,11 @@ export function App() {
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
+  // Behind a closed gate with a bot wallet on this device: in to sell and withdraw, not to buy.
+  const [windDown, setWindDown] = useState(false);
   // The dashboard (with its own Guide tab) is on screen only once every step before it is done.
   const throughGate = !!me && (info?.gateMode === 'open' || me.gate.passed);
-  const dashboardMounted = hub === 'ready' && throughGate && !!vault && unlocked && !!vault.backedUp && strategies !== null && !registering && (strategies.length > 0 || skippedPick);
+  const dashboardMounted = hub === 'ready' && (throughGate || windDown) && !!vault && unlocked && !!vault.backedUp && strategies !== null && !registering && (strategies.length > 0 || skippedPick);
   const showGuide = (section: GuideSection = 'what') => {
     if (dashboardMounted) { openGuide(section); return; } // the dashboard has a Guide tab
     setGuide(section);
@@ -103,7 +105,7 @@ export function App() {
   if (hub === 'loading' || (me && vault === undefined)) body = <p class="muted">Connecting…</p>;
   else if (hub === 'offline') body = <div class="notice bad">The hub is not answering. If you run it yourself: <code>npm run dev:hub</code>, then reload.</div>;
   else if (!me) body = <PublicHome info={info!} me={null} onSignedIn={setMe} onGuide={() => showGuide('what')} guideSection={guide} />;
-  else if (info!.gateMode !== 'open' && !me.gate.passed) body = <PublicHome info={info!} me={me} onSignedIn={setMe} onGuide={() => showGuide('what')} guideSection={guide} onSignOut={signOut} />;
+  else if (!throughGate && !windDown) body = <PublicHome info={info!} me={me} onSignedIn={setMe} onGuide={() => showGuide('what')} guideSection={guide} onSignOut={signOut} onManage={vault ? () => setWindDown(true) : undefined} />;
   // Signed in but between steps (wallet locked, words not saved yet): the Guide still opens, on its own.
   else if (guide && !dashboardMounted) body = <Guide section={guide} onBack={closeGuide} />;
   else if (vault === null) body = restoring ? <RestoreWallet onDone={(v) => { setVault(v); setRestoring(false); }} onBack={() => setRestoring(false)} /> : <CreateWallet onDone={setVault} onRestore={() => setRestoring(true)} />;
@@ -113,7 +115,7 @@ export function App() {
   else if (strategies.length === 0 && !skippedPick) {
     const gateChain = me.wallets.find((w) => w.role === 'gate')?.chain ?? 'solana';
     body = <PickBot me={me} defaultChain={gateChain} onDone={setStrategies} onSkip={() => setSkippedPick(true)} />;
-  } else body = <Dashboard me={me} info={info!} vault={vault!} strategies={strategies} onMe={setMe} onStrategies={setStrategies} onLocked={() => setUnlocked(false)} onSignOut={signOut} />;
+  } else body = <Dashboard me={me} info={info!} vault={vault!} strategies={strategies} onMe={setMe} onStrategies={setStrategies} onLocked={() => setUnlocked(false)} onSignOut={signOut} tradingAllowed={throughGate} />;
 
   return (
     <>

@@ -51,7 +51,7 @@ function progressText(c: Candidate): string {
 }
 const devShare = (c: Candidate): number | null => (c.pons ? c.pons.devSharePct : c.pump ? c.pump.devSharePct : null);
 
-export function Terminal({ strategies, onSaved, readOnly = false, onSignIn }: { strategies: StrategyRecord[]; onSaved: (r: StrategyRecord) => void; readOnly?: boolean; onSignIn?: () => void }) {
+export function Terminal({ strategies, onSaved, readOnly = false, onSignIn, noBuy = null }: { strategies: StrategyRecord[]; onSaved: (r: StrategyRecord) => void; readOnly?: boolean; onSignIn?: () => void; /** A reason buying is off for this signed-in person (a closed gate); the table still judges and positions still show. */ noBuy?: string | null }) {
   const [view0] = useState<TerminalView>(() => (readOnly ? DEFAULT_VIEW : loadCurrentView()));
   const [chainPick, setChainPick] = useState<ChainPick>(view0.chain);
   const [filter, setFilter] = useState<Filter>(view0.filter);
@@ -238,7 +238,7 @@ export function Terminal({ strategies, onSaved, readOnly = false, onSignIn }: { 
         <div class="term-main term-chrome">
           <div class="term-bar">
             <div class="segmented sm">{(['all', 'pass', 'acted', 'watching', 'bundled'] as const).map((f) => <button key={f} class={filter === f ? 'on' : ''} onClick={() => setFilter(f)}>{f === 'all' ? `All (${rows.length})` : f === 'pass' ? `Passing (${passing})` : f === 'acted' ? `Traded (${traded})` : f === 'bundled' ? `Bundled (${bundled})` : `★ Watching (${watched.length})`}</button>)}</div>
-            {!readOnly && <button class="btn sm" onClick={() => setAddrForm(!addrForm)}>Buy by address</button>}
+            {!readOnly && !noBuy && <button class="btn sm" onClick={() => setAddrForm(!addrForm)}>Buy by address</button>}
             <select class="input sm" value={source} onChange={(e) => setSource((e.target as HTMLSelectElement).value as 'all' | CandidateSource)} title="how the hub found it">
               <option value="all">every source</option>
               {sources.map((s) => <option key={s} value={s}>{SOURCE_LABEL[s] ?? s}</option>)}
@@ -266,7 +266,7 @@ export function Terminal({ strategies, onSaved, readOnly = false, onSignIn }: { 
               ? CHAINS.filter((c) => recordFor(c)).map((c) => <button key={c} class="btn sm" onClick={() => startTuning(c)}>Tune {CHAIN_SHORT[c]} rules</button>)
               : recordFor(chainPick) && <button class="btn sm" onClick={() => startTuning(chainPick)}>Tune rules</button>)}
           </div>
-          {addrForm && !readOnly && (
+          {addrForm && !readOnly && !noBuy && (
             <div class="term-bar addr">
               <select class="input sm" value={addrChain} onChange={(e) => setAddrChain((e.target as HTMLSelectElement).value as Chain)}>
                 {CHAINS.map((c) => <option key={c} value={c}>{CHAIN_LABEL[c]}</option>)}
@@ -368,8 +368,8 @@ export function Terminal({ strategies, onSaved, readOnly = false, onSignIn }: { 
       <ListingsPanel onPick={pickMint} />
       <IntelPanel onPick={pickMint} />
 
-      {selected && <Drawer c={selected} v={verdictFor(selected, strategyFor(selected.chain), held, bought)} onClose={() => setSel(null)} onBuy={readOnly ? (onSignIn ?? (() => undefined)) : () => setTrade(selected)} readOnly={readOnly} watched={isWatched(selected.chain, selected.address)} onToggleWatch={() => { toggleWatch(selected); bumpWatch((n) => n + 1); }} />}
-      {trade && !readOnly && <TradeDialog target={trade} strategies={strategies} onClose={() => setTrade(null)} onBought={() => { setFilter('acted'); }} />}
+      {selected && <Drawer c={selected} v={verdictFor(selected, strategyFor(selected.chain), held, bought)} onClose={() => setSel(null)} onBuy={readOnly ? (onSignIn ?? (() => undefined)) : () => setTrade(selected)} readOnly={readOnly} noBuy={noBuy} watched={isWatched(selected.chain, selected.address)} onToggleWatch={() => { toggleWatch(selected); bumpWatch((n) => n + 1); }} />}
+      {trade && !readOnly && !noBuy && <TradeDialog target={trade} strategies={strategies} onClose={() => setTrade(null)} onBought={() => { setFilter('acted'); }} />}
     </div>
   );
 }
@@ -564,7 +564,7 @@ function IntelPanel({ onPick }: { onPick: PickFn }) {
 
 // ---- the drawer: every fact the hub has about one token ------------------------------------------
 
-function Drawer({ c, v, onClose, onBuy, watched, onToggleWatch, readOnly = false }: { c: Candidate; v: Verdict; onClose: () => void; onBuy: () => void; watched: boolean; onToggleWatch: () => void; readOnly?: boolean }) {
+function Drawer({ c, v, onClose, onBuy, watched, onToggleWatch, readOnly = false, noBuy = null }: { c: Candidate; v: Verdict; onClose: () => void; onBuy: () => void; watched: boolean; onToggleWatch: () => void; readOnly?: boolean; noBuy?: string | null }) {
   useEffect(() => { const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose]);
   const p = c.pons ?? null;
   const q = c.pump ?? null;
@@ -577,7 +577,7 @@ function Drawer({ c, v, onClose, onBuy, watched, onToggleWatch, readOnly = false
         <button class="btn sm" onClick={onClose}>Close</button>
       </div>
       <div class="btnrow">
-        <button class="btn primary" onClick={onBuy}>{readOnly ? 'Sign in to trade' : 'Buy…'}</button>
+        <button class="btn primary" disabled={!!noBuy} title={noBuy ?? undefined} onClick={onBuy}>{readOnly ? 'Sign in to trade' : noBuy ? 'Buying is off' : 'Buy…'}</button>
         <button class={`btn${watched ? ' on' : ''}`} onClick={onToggleWatch}>{watched ? '★ Watching' : '☆ Watch'}</button>
         <span class="muted small">{readOnly ? 'Buying, bots and positions unlock with a wallet that holds the gate.' : 'Buy opens a dialog for the amount; nothing is sent until you confirm there.'}</span>
       </div>

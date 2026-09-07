@@ -21,9 +21,11 @@ import { WalletPanel } from './WalletPanel.jsx';
 type Tab = 'bot' | 'terminal' | 'board' | 'wallet' | 'account' | 'guide' | 'review';
 const TAB_LABEL: Record<Tab, string> = { bot: 'Bot', terminal: 'Terminal', board: 'Board', wallet: 'Wallet', account: 'Account', guide: 'Guide', review: 'Review' };
 
-export function Dashboard({ me, info, vault, strategies, onMe, onStrategies, onLocked, onSignOut }: {
+export function Dashboard({ me, info, vault, strategies, onMe, onStrategies, onLocked, onSignOut, tradingAllowed = true }: {
   me: SessionUser; info: HubInfo; vault: VaultBlob; strategies: StrategyRecord[];
   onMe: (me: SessionUser) => void; onStrategies: (s: StrategyRecord[]) => void; onLocked: () => void; onSignOut: () => void;
+  /** False while the gate is closed for this account: positions are priced and can be sold, bots stay off, nothing is bought. */
+  tradingAllowed?: boolean;
 }) {
   const [tab, setTab] = useState<Tab>('bot');
   const [guideSection, setGuideSection] = useState<GuideSection | null>(null);
@@ -51,11 +53,11 @@ export function Dashboard({ me, info, vault, strategies, onMe, onStrategies, onL
   // open, whatever tab is showing: on when one is on, off otherwise, re-armed when its rules change.
   // One effect per chain, keyed on that chain's active strategy identity.
   const actives = CHAINS.map((c) => strategies.find((s) => s.chain === c && s.active) ?? null);
-  const activeKey = actives.map((a) => (a ? `${a.id}:${a.updatedAt}` : '-')).join('|');
+  const activeKey = actives.map((a) => (a ? `${a.id}:${a.updatedAt}` : '-')).join('|') + (tradingAllowed ? '' : '|closed');
   useEffect(() => {
     CHAINS.forEach((c, i) => {
       const a = actives[i];
-      if (a) void botFor(c).start(a.strategy, a.id, info.rpc[c]);
+      if (a && tradingAllowed) void botFor(c).start(a.strategy, a.id, info.rpc[c]);
       else botFor(c).stop();
     });
   }, [activeKey]);
@@ -66,9 +68,15 @@ export function Dashboard({ me, info, vault, strategies, onMe, onStrategies, onL
     if (r.active) botFor(r.chain).updateStrategy(r.strategy);
     try { onStrategies((await api.strategies()).strategies); } catch { /* the optimistic copy stands */ }
   };
-  const status = active.length ? active.map((s) => `${CHAIN_LABEL[s.chain]}: ${s.strategy.name} on`).join(' · ') : strategies.length ? 'all bots off' : 'no bot yet';
+  const status = !tradingAllowed ? 'gate closed · bots off · sell and withdraw only' : active.length ? active.map((s) => `${CHAIN_LABEL[s.chain]}: ${s.strategy.name} on`).join(' · ') : strategies.length ? 'all bots off' : 'no bot yet';
+  const noBuy = tradingAllowed ? null : 'The gate is closed for this account: nothing new can be bought. Selling and withdrawing still work.';
   return (
     <div class={`dash-shell${tab === 'terminal' || tab === 'review' ? ' wide' : ''}`}>
+      {!tradingAllowed && (
+        <div class="notice bad">
+          <b>The gate is closed for this account.</b> {me.gate.reason} Your bots are off and nothing new will be bought; your open positions are still priced, and you can sell them and withdraw. Hold the gate again and everything switches back on after "Re-check the gate" in Account.
+        </div>
+      )}
       {engineLease.state === 'standby' && (
         <div class="notice warn lease">
           <b>Your bots are running in another TradeWarz tab.</b> This tab shows the same positions but will not trade or sell. Close the other tab, or{' '}
@@ -82,8 +90,8 @@ export function Dashboard({ me, info, vault, strategies, onMe, onStrategies, onL
         <span class="spacer" />
         <span class="muted small statusline">{status}</span>
       </div>
-      {tab === 'bot' && <BotTab me={me} info={info} strategies={strategies} onStrategies={onStrategies} onTerminal={() => setTab('terminal')} />}
-      {tab === 'terminal' && <Terminal strategies={strategies} onSaved={(r) => { void saved(r); }} />}
+      {tab === 'bot' && <BotTab me={me} info={info} strategies={strategies} onStrategies={onStrategies} onTerminal={() => setTab('terminal')} tradingAllowed={tradingAllowed} />}
+      {tab === 'terminal' && <Terminal strategies={strategies} onSaved={(r) => { void saved(r); }} noBuy={noBuy} />}
       {tab === 'board' && <Leaderboard chains={info.chains} />}
       {tab === 'review' && me.owner && <Review chains={info.chains} />}
       {tab === 'wallet' && <WalletPanel vault={vault} me={me} info={info} onChange={onMe} onLocked={onLocked} />}

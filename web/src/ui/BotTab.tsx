@@ -14,7 +14,7 @@ import { Numbers } from './Numbers.jsx';
 import { PickBot } from './Onboarding.jsx';
 import { toast } from './toast.js';
 
-export function BotTab({ me, strategies, onStrategies, onTerminal }: { me: SessionUser; info: HubInfo; strategies: StrategyRecord[]; onStrategies: (s: StrategyRecord[]) => void; onTerminal?: () => void }) {
+export function BotTab({ me, strategies, onStrategies, onTerminal, tradingAllowed = true }: { me: SessionUser; info: HubInfo; strategies: StrategyRecord[]; onStrategies: (s: StrategyRecord[]) => void; onTerminal?: () => void; tradingAllowed?: boolean }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [adding, setAdding] = useState<Chain | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
@@ -59,6 +59,7 @@ export function BotTab({ me, strategies, onStrategies, onTerminal }: { me: Sessi
 
   return (
     <div class="stack" style="gap:20px">
+      {!tradingAllowed && <div class="notice bad"><b>The gate is closed for this account.</b> Bots stay off and nothing new is bought. Your open positions are still priced here — sell them from the list or from the Terminal, and withdraw from the Wallet tab. {me.gate.reason}</div>}
       {strategies.length === 0 && <div class="notice">No bots yet. Add one below; it takes ten seconds.</div>}
       {chains.map((chain) => strategies.filter((s) => s.chain === chain).map((r) => {
         const currentPreset = PRESET_NAMES.find((p) => p[0]!.toUpperCase() + p.slice(1) === r.strategy.name) ?? null;
@@ -79,7 +80,7 @@ export function BotTab({ me, strategies, onStrategies, onTerminal }: { me: Sessi
               <button class="btn sm" onClick={() => setEditing(editing === r.id ? null : r.id)}>{editing === r.id ? 'Hide numbers' : 'Edit numbers'}</button>
               <button class="btn sm" onClick={() => setBuilding(r.id)}>Edit all rules</button>
               <span class="spacer" />
-              <button class={`btn sm${r.active ? '' : ' primary'}`} disabled={busy === r.id || (!r.active && !hasBot(chain))} onClick={() => toggle(r)}>{r.active ? 'Switch off' : 'Switch on'}</button>
+              <button class={`btn sm${r.active ? '' : ' primary'}`} disabled={busy === r.id || (!r.active && (!hasBot(chain) || !tradingAllowed))} title={!tradingAllowed && !r.active ? 'the gate is closed for this account' : undefined} onClick={() => toggle(r)}>{r.active ? 'Switch off' : 'Switch on'}</button>
               <button class="btn sm danger" disabled={busy === r.id} onClick={() => remove(r)}>Delete</button>
             </div>
             {!r.active && !hasBot(chain) && <div class="notice" style="margin:10px 0">This bot has no {CHAIN_LABEL[chain]} wallet registered yet. Open the Wallet tab and press "Register with the hub", then switch on.</div>}
@@ -88,7 +89,7 @@ export function BotTab({ me, strategies, onStrategies, onTerminal }: { me: Sessi
               <summary class="muted small">The rules, in words</summary>
               <div class="sentences" style="margin-top:8px">{sentences.map((t, i) => <div key={i}>{t}</div>)}</div>
             </details>
-            <BotPanel chain={chain} active={r.active} onTerminal={onTerminal} />
+            <BotPanel chain={chain} active={r.active && tradingAllowed} onTerminal={onTerminal} />
           </section>
         );
       }))}
