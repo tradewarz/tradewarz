@@ -218,3 +218,28 @@ test('old saved strategies pick up the pump and listing sections with defaults',
     assert.equal(parsed.strategy.advanced.listing.onlyListed, false);
   }
 });
+
+test('copy wallets must be addresses on the bot chain, at most five, no repeats', () => {
+  const input: any = presetInput('balanced', 'solana');
+  input.copy = { wallets: [{ address: '0x1111111111111111111111111111111111111111', label: 'evm' }] };
+  const bad = parseStrategy(input);
+  assert.ok(!bad.ok);
+  assert.match(bad.problems[0]!, /copy\.wallets\.0\.address: is not a Solana address/);
+  input.copy = { wallets: [{ address: 'So11111111111111111111111111111111111111112', label: 'wsol' }] };
+  const good = parseStrategy(input);
+  assert.ok(good.ok);
+  assert.equal(good.strategy.copy.copySells, true);
+  assert.equal(good.strategy.copy.maxAgeSec, 30);
+  assert.equal(good.strategy.copy.followOnly, false);
+  assert.ok(describeStrategy(good.strategy).some((s) => s.startsWith('Copy wsol: buy what they buy within 30 s')));
+  input.copy = { wallets: [{ address: 'So11111111111111111111111111111111111111112' }, { address: 'So11111111111111111111111111111111111111112' }] };
+  const dup = parseStrategy(input);
+  assert.ok(!dup.ok);
+  assert.match(dup.problems[0]!, /listed twice/);
+  input.copy = { wallets: Array.from({ length: 6 }, (_, i) => ({ address: `So1111111111111111111111111111111111111111${i}`, label: `w${i}` })) };
+  assert.ok(!parseStrategy(input).ok);
+  // Without a copy section at all, an old saved strategy still parses and simply follows nobody.
+  const plain = parseStrategy(presetInput('balanced', 'robinhood'));
+  assert.ok(plain.ok);
+  assert.deepEqual(plain.strategy.copy.wallets, []);
+});

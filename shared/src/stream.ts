@@ -29,7 +29,21 @@ export type StreamMessage =
   | { kind: 'drop'; chain: Chain; address: string; reason: string }
   /** A price for a position the tab asked the hub to watch: what `tokens` would sell for right now, in the chain's smallest unit (wei / lamports). */
   | { kind: 'mark'; chain: Chain; token: string; tokens: string; valueWei: string; venue: 'curve' | 'pool' | 'none'; phase: number; liquidityWei: string | null; at: number }
-  | { kind: 'tick'; now: number; ethUsd: number | null; solUsd?: number | null; bnbUsd?: number | null; feed: FeedInfo };
+  | { kind: 'tick'; now: number; ethUsd: number | null; solUsd?: number | null; bnbUsd?: number | null; feed: FeedInfo }
+  /**
+   * A wallet this account follows just traded (later: a shared bot's rules just fired). Sent only to
+   * that account's tabs; the tab decides whether to copy it. fractionPct: the share of their holding a
+   * sell was, when the hub could tell. nativeAmount: SOL / ETH / BNB they spent or received, when known.
+   */
+  | { kind: 'signal'; chain: Chain; source: 'wallet'; from: string; side: 'buy' | 'sell'; token: string; symbol: string | null; nativeAmount: number | null; fractionPct: number | null; tx: string | null; at: number };
+
+/** GET /api/copy — which followed wallets the hub is watching for this account, and the latest signals. */
+export interface CopyStatus {
+  watching: Array<{ chain: Chain; address: string; since: number; lastTradeAt: number | null; trades: number }>;
+  recent: Array<Extract<StreamMessage, { kind: 'signal' }>>;
+  /** Why a wallet is not being watched (over the cap, bad address, chain not supported). */
+  problems: string[];
+}
 
 /** POST /api/stream/watch — ask for marks on a held token. tokens = raw units as a decimal string. */
 export interface WatchRequest { chain: Chain; token: string; tokens: string }

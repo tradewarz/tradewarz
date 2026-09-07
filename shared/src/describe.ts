@@ -88,6 +88,11 @@ export function describeStrategy(s: Strategy): string[] {
     if (pump.length) out.push(`On pump.fun launches: ${pump.join(', ')}.`);
   if (a.maxBundlePct !== null) out.push(`Skip bundled launches: more than ${a.maxBundlePct}% of supply bought by other wallets in the launch block${a.bundleUnknown === 'wait' ? ', and wait for that check before buying' : ''}.`);
   }
+  const cp = s.copy;
+  if (cp.wallets.length) {
+    const names = cp.wallets.map((w) => w.label || `${w.address.slice(0, 4)}…${w.address.slice(-4)}`);
+    out.push(`Copy ${names.join(', ')}: buy what they buy within ${cp.maxAgeSec} s of their trade, with your size and ${cp.applyDiscovery ? 'all of your rules' : 'your safety rules only'}${cp.copySells ? ', and sell the same share when they sell' : ''}${cp.followOnly ? '. Trade nothing else' : ''}.`);
+  }
   const l = a.listing, listing: string[] = [];
   if (l.onlyListed) listing.push('only coins that arrived through a CoinGecko or CoinMarketCap listing');
   if (l.minScore !== null) listing.push(`a listing score of at least ${l.minScore}`);

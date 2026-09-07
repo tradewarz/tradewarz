@@ -180,6 +180,35 @@ export const AdvancedSchema = z.object({
 export type Advanced = z.infer<typeof AdvancedSchema>;
 
 // ---------------------------------------------------------------------------------
+// Copy trading: wallets this bot follows. A buy by one of them is a signal the bot may act on
+// with its own size, its own exits and every guardrail; a sell by them can be copied too.
+export const CopyWalletSchema = z.object({
+  /** The wallet to follow: a Solana account or an EVM address, on this bot's chain. */
+  address: z.string().min(20).max(64),
+  /** A short name shown in place of the address ("whale 1"). */
+  label: z.string().max(24).default(''),
+});
+export type CopyWallet = z.infer<typeof CopyWalletSchema>;
+export const MAX_COPY_WALLETS = 5;
+export const CopySchema = z.object({
+  wallets: z.array(CopyWalletSchema).max(MAX_COPY_WALLETS).default([]),
+  /** When a followed wallet sells, sell the same share of your position. */
+  copySells: z.boolean().default(true),
+  /** Judge a copied buy against your discovery rules as well (default: safety rules and guardrails only). */
+  applyDiscovery: z.boolean().default(false),
+  /** Ignore a signal older than this many seconds (a late copy buys someone else's top). */
+  maxAgeSec: z.number().int().min(5).max(300).default(30),
+  /** Only trade what these wallets trade; the bot's own scanning is switched off. */
+  followOnly: z.boolean().default(false),
+});
+export type Copy = z.infer<typeof CopySchema>;
+
+/** Does this look like an address on that chain? Solana accounts are base58; EVM addresses are 0x + 40 hex. */
+export function isAddressFor(chain: Chain, address: string): boolean {
+  return chain === 'solana' ? /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address) : /^0x[0-9a-fA-F]{40}$/.test(address);
+}
+
+// ---------------------------------------------------------------------------------
 export const STRATEGY_VERSION = 1 as const;
 export const StrategySchema = z.object({
   version: z.literal(STRATEGY_VERSION).default(STRATEGY_VERSION),
@@ -190,6 +219,15 @@ export const StrategySchema = z.object({
   entry: EntrySchema,
   exits: ExitsSchema,
   advanced: AdvancedSchema.default({}),
+  copy: CopySchema.default({}),
+}).superRefine((s, ctx) => {
+  const seen = new Set<string>();
+  s.copy.wallets.forEach((w, i) => {
+    if (!isAddressFor(s.chain, w.address)) ctx.addIssue({ code: 'custom', path: ['copy', 'wallets', i, 'address'], message: `is not a ${CHAIN_NAME[s.chain]} address` });
+    const k = s.chain === 'solana' ? w.address : w.address.toLowerCase();
+    if (seen.has(k)) ctx.addIssue({ code: 'custom', path: ['copy', 'wallets', i, 'address'], message: 'is listed twice' });
+    seen.add(k);
+  });
 });
 export type Strategy = z.infer<typeof StrategySchema>;
 /** What a user may submit: partial, to be filled with defaults and checked. */

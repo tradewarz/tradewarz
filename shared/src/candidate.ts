@@ -151,11 +151,11 @@ export interface Candidate {
 }
 
 /** Every way the hub finds a token, for filters and the "found via" column. */
-export const CANDIDATE_SOURCES = ['pons-launch', 'pump-launch', 'new-pool', 'boosts', 'profiles', 'listing', 'graduation', 'manual'] as const;
+export const CANDIDATE_SOURCES = ['pons-launch', 'pump-launch', 'new-pool', 'boosts', 'profiles', 'listing', 'graduation', 'manual', 'copy'] as const;
 export type CandidateSource = (typeof CANDIDATE_SOURCES)[number];
 export const SOURCE_LABEL: Record<CandidateSource, string> = {
   'pons-launch': 'pons launch', 'pump-launch': 'pump.fun launch', 'new-pool': 'new pool', boosts: 'DexScreener boost',
-  profiles: 'DexScreener profile', listing: 'new listing', graduation: 'graduation', manual: 'added by hand',
+  profiles: 'DexScreener profile', listing: 'new listing', graduation: 'graduation', manual: 'added by hand', copy: 'copied wallet',
 };
 
 export const emptyWindows = (): WindowNumbers => ({ m5: null, h1: null, h6: null, h24: null });
