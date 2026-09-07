@@ -3,7 +3,7 @@ import type { HubInfo, SessionUser } from '@tradewarz/shared';
 import { api, describeError } from '../api.js';
 import { SignInButtons } from './SignIn.jsx';
 import { toast } from './toast.js';
-import { CHAIN_LABEL, short } from './helpers.js';
+import { CHAIN_LABEL, copyText, short } from './helpers.js';
 
 export function Account({ me, info, onChange, onSignOut }: { me: SessionUser; info: HubInfo; onChange: (me: SessionUser) => void; onSignOut: () => void }) {
   const [busy, setBusy] = useState(false);
@@ -61,7 +61,35 @@ export function Account({ me, info, onChange, onSignOut }: { me: SessionUser; in
         <button class="btn sm" onClick={signOut}>Sign out</button>
       </div>
       <HandleField me={me} onChange={onChange} />
+      <DeviceCode />
     </section>
+  );
+}
+
+/** A one-time code that signs another device into this account: a phone, or a computer without wallet extensions. */
+function DeviceCode() {
+  const [code, setCode] = useState<{ code: string; expiresAt: number } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const make = async () => {
+    setBusy(true);
+    try { setCode(await api.handoff()); } catch (e) { toast(describeError(e), 'bad'); } finally { setBusy(false); }
+  };
+  const pretty = code ? `${code.code.slice(0, 4)}-${code.code.slice(4)}` : '';
+  const link = code ? `${location.origin}/#link/${code.code}` : '';
+  const left = code ? Math.max(0, Math.round((code.expiresAt - Date.now()) / 60_000)) : 0;
+  return (
+    <div class="field" style="margin-top:18px; padding-top:14px; border-top:1px solid var(--line)">
+      <label>Use it on another device</label>
+      <div class="muted small">Phones have no wallet extensions, so a phone cannot sign in with Phantom or MetaMask. Make a code here, type it (or open the link) on the other device, and it is signed into this account — for watching, the Terminal, the board and the coach. To trade there too it would need your bot wallet restored from the 12 words.</div>
+      <div class="inline" style="margin-top:8px">
+        <button class="btn" disabled={busy} onClick={() => void make()}>{busy ? 'Making…' : code ? 'Make a new code' : 'Make a code'}</button>
+        {code && (<>
+          <span class="mono" style="font-size:20px; letter-spacing:.12em">{pretty}</span>
+          <button class="btn sm" onClick={async () => { toast((await copyText(link)) ? 'Link copied' : 'Copy blocked'); }}>Copy link</button>
+        </>)}
+      </div>
+      {code && <div class="muted small" style="margin-top:6px">Works once, for about {left} more minute{left === 1 ? '' : 's'}. Anyone with the code can sign into your account until then — read it out, don't post it.</div>}
+    </div>
   );
 }
 

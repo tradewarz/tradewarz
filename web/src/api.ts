@@ -43,6 +43,8 @@ export const api = {
   intel: (limit = 200) => call<IntelView>('GET', `/api/intel?limit=${limit}`),
   ops: () => call<import('./ui/Ops.js').OpsData>('GET', '/api/ops'),
   copy: () => call<CopyStatus>('GET', '/api/copy'),
+  handoff: () => call<{ code: string; expiresAt: number }>('POST', '/api/auth/handoff', {}),
+  claimHandoff: (code: string) => call<{ me: SessionUser }>('POST', '/api/auth/handoff/claim', { code }),
 
   // the contest
   board: (chain: Chain, week = 'current') => call<BoardView>('GET', `/api/board?${q(chain, week)}`),

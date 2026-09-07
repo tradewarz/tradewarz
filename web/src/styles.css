@@ -836,3 +836,7 @@ table.launches tbody tr.sel { background: rgba(196, 30, 58, 0.12); }
 .coach .suggestion > span:nth-child(2) { flex: 1; min-width: 200px; }
 .coach .coach-ask { display: flex; gap: 8px; margin-top: 12px; }
 .coach .coach-ask .input { flex: 1; }
+/* sign-in: the device code entry */
+.signin .code-entry { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+.signin .code-entry .input { width: 150px; text-transform: uppercase; letter-spacing: .1em; }
+.signin .code-entry .muted { flex-basis: 100%; }

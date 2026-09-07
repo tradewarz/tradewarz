@@ -63,7 +63,14 @@ export function App() {
     (async () => {
       try {
         const [i, m, v] = await Promise.all([api.info(), api.me(), loadVault()]);
-        setInfo(i); setMe(m.me); setVault(v); setHub('ready');
+        let who = m.me;
+        // Opened from a "use it on another device" link: the code in the hash signs this device in.
+        const link = /^#link\/([A-Za-z0-9-]{6,24})$/.exec(window.location.hash);
+        if (link) {
+          history.replaceState(null, '', '/');
+          if (!who) { try { who = (await api.claimHandoff(link[1]!)).me; toast('Signed in on this device'); } catch (e) { toast(describeError(e), 'bad'); } }
+        }
+        setInfo(i); setMe(who); setVault(v); setHub('ready');
       } catch (e) { setHub('offline'); toast(describeError(e), 'bad'); }
     })();
     return onWalletChange(() => setUnlocked(isUnlocked()));
