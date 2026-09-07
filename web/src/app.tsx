@@ -9,7 +9,24 @@ import { Dashboard } from './ui/Dashboard.jsx';
 import { CreateWallet, PickBot, RestoreWallet, SaveWords, UnlockScreen, Welcome } from './ui/Onboarding.jsx';
 import { Guide, guideFromHash, openGuide, type GuideSection } from './ui/Guide.jsx';
 import { PublicHome } from './ui/PublicHome.jsx';
+import { canPromptInstall, isIOS, isStandalone, onInstallChange, promptInstall } from './ui/install.js';
 import { toast } from './ui/toast.js';
+
+/** "Install app" while the browser offers it (or, on iOS, a pointer to the Guide); nothing once installed. */
+function InstallLink({ onGuide }: { onGuide: () => void }) {
+  const [, bump] = useState(0);
+  useEffect(() => onInstallChange(() => bump((n) => n + 1)), []);
+  if (isStandalone()) return null;
+  const prompt = canPromptInstall();
+  if (!prompt && !isIOS()) return null;
+  const click = async (e: Event) => {
+    e.preventDefault();
+    if (!prompt) { onGuide(); return; }
+    const r = await promptInstall();
+    if (r === 'accepted') toast('TradeWarz is installed. It opens in its own window from now on.');
+  };
+  return <a class="head-link" href="#guide/app" title="Use TradeWarz as an app" onClick={(e) => { void click(e); }}>Install app</a>;
+}
 
 /**
  * One path, in order: sign in → create (or unlock) the bot wallet → save the 12 words →
@@ -101,6 +118,7 @@ export function App() {
           </a>
           <span class="spacer" />
           <a class="head-link" href="#guide" onClick={(e) => { e.preventDefault(); showGuide('what'); }}>Guide</a>
+          <InstallLink onGuide={() => showGuide('app')} />
           {info && <span class={`pill gate-pill ${info.gateMode === 'open' ? 'warn' : me?.gate.passed ? 'ok' : ''}`} title={me?.gate.reason ?? ''}>{info.gateMode === 'open' ? 'gate open · setup' : info.gateMode === 'closed' ? 'trading opens at token launch' : <><span>{info.gateRequired.toLocaleString('en-US')}</span> TRADEWARZ to enter</>}</span>}
           {me && <button class="btn sm signout" onClick={signOut}>Sign out</button>}
         </div>

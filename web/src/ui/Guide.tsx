@@ -20,6 +20,7 @@ export const GUIDE_SECTIONS = [
   ['positions', 'Positions'],
   ['board', 'The leaderboard'],
   ['coach', 'The AI coach'],
+  ['app', 'Use it as an app'],
   ['safety', 'What is checked, and what is not'],
   ['sources', 'Where the data comes from'],
   ['open', 'Open source'],
@@ -149,6 +150,11 @@ export function Guide({ section, onBack }: { section: GuideSection | null; onBac
         <p><b>What is sent, and where:</b> your review pack — the same document "Your data" gives you: your rules in words, every closed trade, the bots' recent decisions and your open positions — plus a fixed instruction telling the model to use only those numbers, to respect the guardrails, and never to suggest chasing losses. It goes from your browser straight to the provider you chose. The TradeWarz hub never sees your key, the pack or the answer; nothing about it is stored anywhere but this browser. "Show exactly what was sent" shows the whole pack. The provider's own data terms apply to what you send it.</p>
         <p><b>Suggestions:</b> the coach ends with concrete rule changes ("Solana bot: stop loss 20%") shown as Apply buttons. Applying one runs the same schema and guardrail checks as the Builder and saves the rule; anything that would loosen a guardrail is refused with the guardrail's own sentence. You can ask follow-up questions in the same conversation.</p>
         <p>It is a coach, not an oracle: with few closed trades it will (and should) tell you the sample is too small, and a model can still be wrong about your data. Read the numbers it quotes against the review pack before you change anything.</p>
+
+        <h2 id="g-app">Use it as an app</h2>
+        <p>TradeWarz installs like an app, straight from the browser — no store. <b>On a computer</b> (Chrome or Edge): press "Install app" in the header, or the install icon at the right end of the address bar; it then opens in its own window with its own icon, and stays signed in and unlocked like any tab. <b>On Android</b> (Chrome): the same button, or the browser menu → "Install app" / "Add to Home screen". <b>On iPhone and iPad</b> (Safari): the Share button → "Add to Home Screen"; Safari offers no install button of its own.</p>
+        <p><b>What installing does not change:</b> a bot trades only while the app (or tab) is open. A computer keeps an open window running, so an installed TradeWarz on a desktop or laptop is a fine place to run bots. A phone puts background apps to sleep within seconds, so on a phone the app is for watching and tuning: your positions, the Terminal, the board, the coach — while the bots keep running in a window on your computer. If two windows are open at once, one of them trades and the other watches; the Bot tab says which ("running in another tab", with a "Run here" button to take over).</p>
+        <p>The installed app keeps a copy of the page itself so it opens even without a network, but nothing live is ever cached: prices, candidates, balances and trades are fetched fresh every time, and your keys stay exactly where they were — encrypted in this browser, never in any cache.</p>
 
         <h2 id="g-safety">What is checked, and what is not</h2>
         <p>Before a buy, the bot checks what it can: the token's contract report from GoPlus where GoPlus covers the chain (mint and freeze authority, honeypot, sell tax, holder concentration); on pons launches, the opening tax it would pay right now; on Base and BNB Chain, a quoted buy-and-sell round trip — if selling straight back would lose more than a quarter of the stake, it does not buy; on launches, the creator's buy, the launch-block bundle and the launcher's history where known. pump.fun tokens are structurally fixed-supply with no mint or freeze, so only their trading behaviour is judged.</p>

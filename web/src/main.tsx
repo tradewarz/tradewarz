@@ -6,6 +6,7 @@ import { Buffer } from 'buffer';
 import { render } from 'preact';
 import { App } from './app.js';
 import { hubStream } from './engine/stream.js';
+import { registerServiceWorker } from './ui/install.js';
 import './styles.css';
 
 // A read-mostly handle for the browser console and the end-to-end tests: the stream client
@@ -13,3 +14,4 @@ import './styles.css';
 (globalThis as unknown as { tradewarz: { hubStream: typeof hubStream } }).tradewarz = { hubStream };
 
 render(<App />, document.getElementById('app')!);
+registerServiceWorker();
