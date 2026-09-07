@@ -23,13 +23,16 @@ export interface FeedInfo {
 /** Native prices in USD, one per chain the hub prices. */
 export interface Prices { ethUsd: number | null; solUsd: number | null; bnbUsd: number | null }
 
+/** The owner's brake and megaphone: buying paused on every tab, and a notice everyone sees. */
+export interface HubControl { paused: boolean; notice: string }
+
 export type StreamMessage =
-  | { kind: 'hello'; now: number; ethUsd: number | null; solUsd?: number | null; bnbUsd?: number | null; feed: FeedInfo; candidates: Candidate[] }
+  | { kind: 'hello'; now: number; ethUsd: number | null; solUsd?: number | null; bnbUsd?: number | null; feed: FeedInfo; candidates: Candidate[]; control?: HubControl }
   | { kind: 'candidate'; candidate: Candidate }
   | { kind: 'drop'; chain: Chain; address: string; reason: string }
   /** A price for a position the tab asked the hub to watch: what `tokens` would sell for right now, in the chain's smallest unit (wei / lamports). */
   | { kind: 'mark'; chain: Chain; token: string; tokens: string; valueWei: string; venue: 'curve' | 'pool' | 'none'; phase: number; liquidityWei: string | null; at: number }
-  | { kind: 'tick'; now: number; ethUsd: number | null; solUsd?: number | null; bnbUsd?: number | null; feed: FeedInfo }
+  | { kind: 'tick'; now: number; ethUsd: number | null; solUsd?: number | null; bnbUsd?: number | null; feed: FeedInfo; control?: HubControl }
   /**
    * A wallet this account follows just traded (later: a shared bot's rules just fired). Sent only to
    * that account's tabs; the tab decides whether to copy it. fractionPct: the share of their holding a

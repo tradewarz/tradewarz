@@ -2,7 +2,7 @@
 // background tabs but keep delivering network messages, so everything the bot does is a
 // reaction to a message here. Also tracks whether the connection looks alive.
 
-import type { Candidate, Chain, FeedInfo, StreamMessage } from '@tradewarz/shared';
+import type { Candidate, Chain, FeedInfo, HubControl, StreamMessage } from '@tradewarz/shared';
 import { api } from '../api.js';
 
 type Listener = (m: StreamMessage) => void;
@@ -18,6 +18,8 @@ class HubStream {
   bnbUsd: number | null = null;
   lastMessageAt = 0;
   connected = false;
+  /** The owner's brake and notice, as of the last heartbeat. */
+  control: HubControl = { paused: false, notice: '' };
   private watches = new Map<string, { chain: Chain; token: string; tokens: string }>();
 
   /** EVM addresses are case-insensitive; Solana mints are base58 and keep their case. */
@@ -39,10 +41,10 @@ class HubStream {
       try { m = JSON.parse(ev.data) as StreamMessage; } catch { return; }
       this.lastMessageAt = Date.now();
       this.connected = true;
-      if (m.kind === 'hello') { this.candidates.clear(); for (const c of m.candidates) this.candidates.set(HubStream.key(c.chain, c.address), c); this.feed = m.feed; this.ethUsd = m.ethUsd; this.solUsd = m.solUsd ?? this.solUsd; this.bnbUsd = m.bnbUsd ?? this.bnbUsd; }
+      if (m.kind === 'hello') { this.candidates.clear(); for (const c of m.candidates) this.candidates.set(HubStream.key(c.chain, c.address), c); this.feed = m.feed; this.ethUsd = m.ethUsd; this.solUsd = m.solUsd ?? this.solUsd; this.bnbUsd = m.bnbUsd ?? this.bnbUsd; if (m.control) this.control = m.control; }
       else if (m.kind === 'candidate') this.candidates.set(HubStream.key(m.candidate.chain, m.candidate.address), m.candidate);
       else if (m.kind === 'drop') this.candidates.delete(HubStream.key(m.chain, m.address));
-      else if (m.kind === 'tick') { this.feed = m.feed; this.ethUsd = m.ethUsd; this.solUsd = m.solUsd ?? this.solUsd; this.bnbUsd = m.bnbUsd ?? this.bnbUsd; }
+      else if (m.kind === 'tick') { this.feed = m.feed; this.ethUsd = m.ethUsd; this.solUsd = m.solUsd ?? this.solUsd; this.bnbUsd = m.bnbUsd ?? this.bnbUsd; if (m.control) this.control = m.control; }
       this.emit(m);
     };
   }

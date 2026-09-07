@@ -10,6 +10,24 @@ import { CreateWallet, PickBot, RestoreWallet, SaveWords, UnlockScreen, Welcome 
 import { Guide, guideFromHash, openGuide, TG_CHANNEL_URL, TG_CHAT_URL, type GuideSection } from './ui/Guide.jsx';
 import { PublicHome } from './ui/PublicHome.jsx';
 import { canPromptInstall, isIOS, isStandalone, onInstallChange, promptInstall } from './ui/install.js';
+import { hubStream } from './engine/stream.js';
+import { REPO_URL } from './ui/Guide.jsx';
+import type { HubControl } from '@tradewarz/shared';
+
+/** The owner's notice and pause, shown on every screen; follows the heartbeat once the stream is up. */
+function ControlBanner({ initial }: { initial: HubControl | undefined }) {
+  const [c, setC] = useState<HubControl>(initial ?? { paused: false, notice: '' });
+  useEffect(() => { if (initial) setC(initial); }, [initial?.paused, initial?.notice]);
+  // The stream is what carries a pause to an open tab; start it here so every screen hears it, not just the dashboard.
+  useEffect(() => { hubStream.start(); return hubStream.on((m) => { if ((m.kind === 'tick' || m.kind === 'hello') && m.control) setC(m.control); }); }, []);
+  if (!c.paused && !c.notice) return null;
+  return (
+    <div class={`notice ${c.paused ? 'bad' : 'warn'} control-banner`}>
+      {c.paused && <b>Buying is paused on the hub. </b>}{c.paused && !c.notice && 'Bots are not entering and Buy is off everywhere; positions stay priced, and selling and withdrawing work as normal. '}
+      {c.notice}
+    </div>
+  );
+}
 import { toast } from './ui/toast.js';
 
 /** "Install app" while the browser offers it (or, on iOS, a pointer to the Guide); nothing once installed. */
@@ -133,8 +151,9 @@ export function App() {
           {me && <button class="btn sm signout" onClick={signOut}>Sign out</button>}
         </div>
       </header>
+      <ControlBanner initial={info?.control} />
       <main><Boundary>{body}</Boundary></main>
-      <footer>TradeWarz is software you run yourself. It is not investment advice, and trading these markets can lose everything you put in. {info ? `Hub v${info.version}.` : ''} · <a href={TG_CHANNEL_URL} target="_blank" rel="noopener noreferrer">Channel</a> · <a href={TG_CHAT_URL} target="_blank" rel="noopener noreferrer">Chat</a></footer>
+      <footer>TradeWarz is software you run yourself. It is not investment advice, and trading these markets can lose everything you put in. {info ? <>Hub v{info.version}{info.build ? <> · build <a href={`${REPO_URL}/commit/${info.build}`} target="_blank" rel="noopener noreferrer" title="the exact code this hub runs, on GitHub">{info.build.slice(0, 7)}</a></> : null}.</> : ''} · <a href={TG_CHANNEL_URL} target="_blank" rel="noopener noreferrer">Channel</a> · <a href={TG_CHAT_URL} target="_blank" rel="noopener noreferrer">Chat</a></footer>
     </>
   );
 }

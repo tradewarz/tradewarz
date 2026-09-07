@@ -31,6 +31,11 @@ export function Dashboard({ me, info, vault, strategies, onMe, onStrategies, onL
   const [guideSection, setGuideSection] = useState<GuideSection | null>(null);
   const [, bumpLease] = useState(0);
   useEffect(() => engineLease.on(() => bumpLease((n) => n + 1)), []);
+  // The owner's pause reaches this tab on a heartbeat; re-render only when it actually changes.
+  useEffect(() => {
+    let last = JSON.stringify(hubStream.control);
+    return hubStream.on((m) => { if ((m.kind === 'tick' || m.kind === 'hello') && m.control) { const now = JSON.stringify(m.control); if (now !== last) { last = now; bumpLease((n) => n + 1); } } });
+  }, []);
   const active = strategies.filter((s) => s.active);
   // "what's this?" links anywhere on the site open the Guide at their section.
   useEffect(() => {

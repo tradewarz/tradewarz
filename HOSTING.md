@@ -61,6 +61,12 @@ snapshots on paid plans (the disk's Snapshots tab); on top of that, an owner can
 (`Research` tab → export) any time — closed trades, fills and every strategy version as CSV or JSON. Do that
 weekly until the contest matters enough to automate it.
 
+### The brake
+
+Signed in as an owner, the Review tab has **Controls**: "Pause all buying" stops every open tab from entering
+(exits, sells and withdrawals keep working) and a notice line shows on every screen. Both take effect within ten
+seconds and survive a restart. Use them during an incident before you touch anything else.
+
 ### Checklist before the domain goes public
 
 1. Blueprint deployed, `/api/health` answers, the page loads over HTTPS.

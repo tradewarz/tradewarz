@@ -59,4 +59,8 @@ export interface HubInfo {
   rpc: Record<Chain, string>;
   tokens: Partial<Record<Chain, string>>;
   now: number;
+  /** Buying paused hub-wide, and the notice shown to everyone. */
+  control: { paused: boolean; notice: string };
+  /** The git commit the hub was built from, when known; the footer links it to the repository. */
+  build: string;
 }

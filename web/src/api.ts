@@ -44,6 +44,7 @@ export const api = {
   ops: () => call<import('./ui/Ops.js').OpsData>('GET', '/api/ops'),
   copy: () => call<CopyStatus>('GET', '/api/copy'),
   handoff: () => call<{ code: string; expiresAt: number }>('POST', '/api/auth/handoff', {}),
+  setControl: (patch: { paused?: boolean; notice?: string }) => call<import('@tradewarz/shared').HubControl>('POST', '/api/ops/control', patch),
   claimHandoff: (code: string) => call<{ me: SessionUser }>('POST', '/api/auth/handoff/claim', { code }),
 
   // the contest

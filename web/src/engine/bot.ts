@@ -232,6 +232,7 @@ export class Bot {
    */
   async buyNow(target: Candidate, sizeNative: number, opts: { slippagePct: number; manage: boolean }): Promise<Position> {
     this.mustBeActive();
+    if (hubStream.control.paused) throw new Error(`buying is paused on the hub${hubStream.control.notice ? `: ${hubStream.control.notice}` : ''}. Selling and withdrawing still work.`);
     if (!(sizeNative > 0)) throw new Error('enter an amount');
     const size = this.a.parse(sizeNative);
     const key = this.key(target.address);
@@ -413,10 +414,17 @@ export class Bot {
     }
   }
 
+  /** The owner has paused buying hub-wide: say so once, buy nothing. Exits and sells are untouched. */
+  private paused(): boolean {
+    if (!hubStream.control.paused) return false;
+    this.setOnce('paused', 'on', () => this.note('info', '', 'bot', [`buying is paused on the hub${hubStream.control.notice ? `: ${hubStream.control.notice}` : ''}; exits keep running`]));
+    return true;
+  }
+
   /** The buy half of a copy: safety rules (plus discovery rules if the copy rules say so), every rail, then the order. */
   private async copyBuy(c: Candidate, m: Signal, label: string): Promise<void> {
     const s = this.strategy;
-    if (!s || !this.running) return;
+    if (!s || !this.running || this.paused()) return;
     const key = this.key(c.address);
     if (this.busy.has(key)) return;
     if ([...this.positions.values()].some((p) => p.status === 'open' && this.same(p.token, c.address))) return;
@@ -435,6 +443,7 @@ export class Bot {
     const key = this.key(c.address);
     if (this.busy.has(key)) return;
     if (s.copy.followOnly) { this.setOnce('followOnly', 'on', () => this.note('info', '', 'bot', ['follow-only is on: the bot trades what your copied wallets trade and ignores the scanner'])); return; }
+    if (this.paused()) return;
     if ([...this.positions.values()].some((p) => p.status === 'open' && this.same(p.token, c.address))) return;
     const cd = this.cooldowns.get(`${this.chain}:${key}`);
     if (cd && cd.until > Date.now()) return;
