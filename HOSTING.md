@@ -56,10 +56,19 @@ hub warns loudly in its log when you do.
 
 ### Backups
 
-The database is one file: `/var/data/tradewarz.sqlite` (plus `-wal`/`-shm` while running). Render keeps disk
-snapshots on paid plans (the disk's Snapshots tab); on top of that, an owner can pull the research exports
-(`Research` tab → export) any time — closed trades, fills and every strategy version as CSV or JSON. Do that
-weekly until the contest matters enough to automate it.
+The database is one file: `/var/data/tradewarz.sqlite` (plus `-wal`/`-shm` while running). The hub copies it once a
+day with SQLite's `VACUUM INTO` into `/var/data/backups/` (the last seven kept, `TW_BACKUP_KEEP`), and the Ops tab
+lists them with a download link and a "Back up now" button — download one now and then to keep a copy off the box.
+Render also keeps disk snapshots on paid plans (the disk's Snapshots tab), and the research exports (`Research`
+tab → export) give closed trades, fills and every strategy version as CSV or JSON.
+
+### Monitoring
+
+Point an outside monitor (UptimeRobot and Better Stack both have free tiers) at `https://<your domain>/api/health/deep`
+every 5 minutes, alerting on anything but 200. It answers 503 with plain reasons when the hub is up but not doing
+its job: both launch feeds silent for 15 minutes, the database unwritable, the indexer stuck, no backup in 30 hours.
+Render's own health check stays on `/api/health` (liveness only), so a provider outage never makes Render restart
+the process in a loop.
 
 ### The brake
 

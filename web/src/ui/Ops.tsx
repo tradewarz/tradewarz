@@ -4,6 +4,7 @@
 
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { api, describeError } from '../api.js';
+import { toast } from './toast.js';
 
 export interface OpsData {
   now: number; uptimeSec: number; memoryMb: number;
@@ -80,6 +81,31 @@ export function OpsPanel() {
       </div>
       {refused.length > 0 && <p class="muted small" style="margin:8px 0 0">Refused by the limiter: {refused.map(([k, n]) => `${k} ×${n}`).join(' · ')}</p>}
       <p class="muted small" style="margin:8px 0 0">Per chain: {Object.entries(data.candidates).map(([c, n]) => `${c} ${n}`).join(' · ')}. The rate column compares two samples 15 s apart; a dash means the provider only reports state, not counts.</p>
+      <Backups />
+      <p class="muted small" style="margin:12px 0 0">For an outside monitor, point it at <code>{location.origin}/api/health/deep</code>: it answers 200 while the hub is doing its job and 503 with the reasons when it is not (both launch feeds silent, database unwritable, indexer stuck, no recent backup).</p>
+    </div>
+  );
+}
+
+/** Nightly copies of the database, on the hub's disk; download one to keep a copy off the box. */
+function Backups() {
+  const [list, setList] = useState<Array<{ name: string; bytes: number; at: number }> | null>(null);
+  const [busy, setBusy] = useState(false);
+  const load = () => api.backups().then((r) => setList(r.backups)).catch(() => setList([]));
+  useEffect(() => { void load(); }, []);
+  const make = async () => {
+    setBusy(true);
+    try { const b = await api.backupNow(); await load(); toast(`Backed up: ${b.name} (${Math.round(b.bytes / 1024)} kB)`); } catch (e) { toast(describeError(e), 'bad'); } finally { setBusy(false); }
+  };
+  return (
+    <div style="margin-top:14px">
+      <h3 style="margin:0 0 6px">Backups <span class="muted small">a copy of the database every day, the last seven kept · download one to keep it off the box</span></h3>
+      <div class="btnrow" style="margin-bottom:6px"><button class="btn sm" disabled={busy} onClick={() => void make()}>{busy ? 'Copying…' : 'Back up now'}</button></div>
+      {list === null ? <div class="muted small">Loading…</div> : list.length === 0 ? <div class="muted small">No backup yet — the first one is made half a minute after the hub starts.</div> : (
+        <div class="tablewrap"><table class="launches"><thead><tr><th>file</th><th class="n">size</th><th>made</th></tr></thead>
+          <tbody>{list.map((b) => <tr key={b.name}><td><a href={`/api/ops/backup/${encodeURIComponent(b.name)}`}>{b.name}</a></td><td class="n mono">{Math.round(b.bytes / 1024)} kB</td><td class="small muted">{new Date(b.at).toLocaleString()}</td></tr>)}</tbody>
+        </table></div>
+      )}
     </div>
   );
 }

@@ -45,6 +45,8 @@ export const api = {
   copy: () => call<CopyStatus>('GET', '/api/copy'),
   handoff: () => call<{ code: string; expiresAt: number }>('POST', '/api/auth/handoff', {}),
   setControl: (patch: { paused?: boolean; notice?: string }) => call<import('@tradewarz/shared').HubControl>('POST', '/api/ops/control', patch),
+  backups: () => call<{ dir: string; backups: Array<{ name: string; bytes: number; at: number }> }>('GET', '/api/ops/backups'),
+  backupNow: () => call<{ name: string; bytes: number; at: number }>('POST', '/api/ops/backup', {}),
   claimHandoff: (code: string) => call<{ me: SessionUser }>('POST', '/api/auth/handoff/claim', { code }),
 
   // the contest
