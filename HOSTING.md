@@ -41,7 +41,10 @@ their own; bots resume when the stream is back. Expect a gap of about a minute.
   not an endpoint URL or the two are the same keyed URL.
 - `TW_OWNER_WALLETS` — the wallet address(es) you sign in with. Owners see Review, Research and Ops.
 - `TW_TOKEN_SOLANA` / `TW_TOKEN_ROBINHOOD` — the TRADEWARZ contract(s). Setting either switches the gate from
-  closed to token mode. Until then the page tells signed-in people that trading opens at launch.
+  closed to token mode. Until then the page tells signed-in people that trading opens at launch. The key may sit
+  there empty until launch day; a value that is not an address for its chain is ignored with a start-up WARNING,
+  so a half-pasted address cannot lock everyone out. Holders pass with the wallet that holds the token linked to
+  their account — a Robinhood Chain token means an EVM wallet (MetaMask) on Robinhood Chain, not Phantom.
 - `TW_PRIZES` stays `0` until you decide otherwise; the board runs regardless.
 
 ### Gate modes, and how a public hub behaves
