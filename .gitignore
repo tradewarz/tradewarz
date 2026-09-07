@@ -25,3 +25,4 @@ _*.ps1
 /banner.png
 .DS_Store
 Thumbs.db
+_*.txt
