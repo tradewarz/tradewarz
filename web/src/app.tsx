@@ -7,7 +7,7 @@ import { isUnlocked, lock, onWalletChange, setWithdrawTargets } from './botwalle
 import { Boundary } from './ui/Boundary.jsx';
 import { Dashboard } from './ui/Dashboard.jsx';
 import { CreateWallet, PickBot, RestoreWallet, SaveWords, UnlockScreen, Welcome } from './ui/Onboarding.jsx';
-import { Guide, guideFromHash, openGuide, type GuideSection } from './ui/Guide.jsx';
+import { Guide, guideFromHash, openGuide, TG_CHANNEL_URL, TG_CHAT_URL, type GuideSection } from './ui/Guide.jsx';
 import { PublicHome } from './ui/PublicHome.jsx';
 import { canPromptInstall, isIOS, isStandalone, onInstallChange, promptInstall } from './ui/install.js';
 import { toast } from './ui/toast.js';
@@ -118,13 +118,14 @@ export function App() {
           </a>
           <span class="spacer" />
           <a class="head-link" href="#guide" onClick={(e) => { e.preventDefault(); showGuide('what'); }}>Guide</a>
+          <a class="head-link" href={TG_CHANNEL_URL} target="_blank" rel="noopener noreferrer">Telegram</a>
           <InstallLink onGuide={() => showGuide('app')} />
           {info && <span class={`pill gate-pill ${info.gateMode === 'open' ? 'warn' : me?.gate.passed ? 'ok' : ''}`} title={me?.gate.reason ?? ''}>{info.gateMode === 'open' ? 'gate open · setup' : info.gateMode === 'closed' ? 'trading opens at token launch' : <><span>{info.gateRequired.toLocaleString('en-US')}</span> TRADEWARZ to enter</>}</span>}
           {me && <button class="btn sm signout" onClick={signOut}>Sign out</button>}
         </div>
       </header>
       <main><Boundary>{body}</Boundary></main>
-      <footer>TradeWarz is software you run yourself. It is not investment advice, and trading these markets can lose everything you put in. {info ? `Hub v${info.version}.` : ''}</footer>
+      <footer>TradeWarz is software you run yourself. It is not investment advice, and trading these markets can lose everything you put in. {info ? `Hub v${info.version}.` : ''} · <a href={TG_CHANNEL_URL} target="_blank" rel="noopener noreferrer">Channel</a> · <a href={TG_CHAT_URL} target="_blank" rel="noopener noreferrer">Chat</a></footer>
     </>
   );
 }

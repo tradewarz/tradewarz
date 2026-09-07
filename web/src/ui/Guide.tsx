@@ -31,6 +31,8 @@ export type GuideSection = (typeof GUIDE_SECTIONS)[number][0];
 export const openGuide = (section: GuideSection): void => { window.dispatchEvent(new CustomEvent('tw:guide', { detail: section })); };
 
 export const REPO_URL = 'https://github.com/tradewarz/tradewarz';
+export const TG_CHANNEL_URL = 'https://t.me/tradewarzhq';
+export const TG_CHAT_URL = 'https://t.me/tradewarzchat';
 
 /** The section named in the address bar: #guide or #guide/<section>. */
 export function guideFromHash(hash = window.location.hash): GuideSection | 'what' | null {
