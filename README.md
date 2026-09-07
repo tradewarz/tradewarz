@@ -6,7 +6,8 @@ Robinhood Chain (pons launches), Base and BNB Chain.
 
 Hold TRADEWARZ, sign in with the wallet that holds it, describe your bot in plain sentences, and
 it trades from a bot wallet that exists only in your browser tab. Every trade is a real on-chain
-transaction signed by that wallet; the hub reads the receipts itself and scores what it can prove.
+transaction signed by that wallet; the hosted service reads the receipts itself and scores what it
+can prove.
 
 > **This is trading software for volatile, thinly traded tokens. It can and will lose money.**
 > Nothing here is financial advice. Use only funds you can afford to lose, read the code you are
@@ -14,18 +15,21 @@ transaction signed by that wallet; the hub reads the receipts itself and scores 
 
 ## Why the code is public
 
-The point of publishing is that nobody has to take our word for the two claims that matter:
+The browser client and the shared scoring logic are public so nobody has to take our word for the
+claims that matter:
 
 1. **Your keys never leave your browser.** The bot wallet is a 12-word phrase generated in the
-   page, encrypted with your password and stored in your browser's IndexedDB. The hub never
-   receives a phrase or a key, never signs, never holds funds. Search this repository for where
-   keys are handled: `web/src/botwallet/` and `web/src/engine/`. The hub's API surface is in
-   `hub/src/routes.ts` — there is no endpoint that accepts a key.
+   page, encrypted with your password and stored in your browser's IndexedDB. Search this
+   repository for where keys are handled: `web/src/botwallet/` and `web/src/engine/`. The hosted
+   API never receives a phrase or a key, never signs, never holds funds.
 2. **The leaderboard is scored from the chain, by code you can read.** Tabs report transaction
-   *hashes* only (`web/src/engine/report.ts`). The hub reads each receipt itself
-   (`hub/src/indexer/`), pairs fills into round trips (`hub/src/indexer/pair.ts`) and scores
-   weeks with pure functions in `shared/src/leaderboard.ts` (ISO UTC weeks, eligibility floors,
-   exclusions, review). Anyone can re-score a week from the published hashes.
+   *hashes* only (`web/src/engine/report.ts`). Weeks are scored with pure functions in
+   `shared/src/leaderboard.ts` (ISO UTC weeks, eligibility floors, exclusions, review). Anyone can
+   re-score a week from the published hashes.
+
+The hosted matchmaking/API service (sign-in, token gate, candidate stream, indexer, board) runs
+from a **private** server repository (`tradewarz/tradewarz-server`). That source is not in this
+public tree. This repository is the auditable client + shared packages.
 
 ## What's in the repository
 
@@ -33,7 +37,6 @@ The point of publishing is that nobody has to take our word for the two claims t
 |---|---|---|
 | `shared/` | The strategy vocabulary (zod schema), guardrails every bot must satisfy, presets, the candidate model, the rule evaluator that turns settings into pass/fail with plain-language reasons, the leaderboard scoring, chain constants. Pure TypeScript, no I/O. | MIT |
 | `web/` | The page (Vite + Preact): sign-in, the in-browser bot wallet, the trading engine (`engine/`: one `Bot` per chain behind a `ChainAdapter`), the Terminal (every source in one judged table), the rules builder, positions, the board. | MIT |
-| `hub/` | The server (Node 22+, `node:http` + `node:sqlite`): wallet sign-in, the token gate, strategy storage, the live candidate stream (pons launches, pump.fun creations, new pools, DexScreener promotions, CoinGecko/CoinMarketCap listings with a 0–100 score), the indexer, the leaderboard. Serves the built page with a strict CSP. Never holds a key. | BSL 1.1 (see `hub/LICENSE`) |
 | `e2e/` | A headless-Chromium drive of the sign-in flow with a mock wallet. | MIT |
 
 ## How trading works
@@ -54,21 +57,20 @@ The point of publishing is that nobody has to take our word for the two claims t
   wallets bought in the same slot/block as the creation and how much of the supply they took),
   curve progress, launcher history, listing score.
 
-## Run it locally
+## Run the client locally
 
 ```
 npm install --include=dev
 npm run build -w shared
-npm run dev:hub          # http://127.0.0.1:8787  (API + the built page when TW_WEB_DIST is set)
-npm run dev:web          # http://127.0.0.1:5173  (page, proxies /api to the hub)
+npm run dev:web          # http://127.0.0.1:5173
 ```
 
-Copy `hub/.env.example` to `hub/.env` and fill in what you have. Everything runs keyless by
-default (public RPCs, keyless CoinGecko, CoinMarketCap and GeckoTerminal); keys raise limits.
-The token gate is open until the TRADEWARZ contract addresses are set.
+The Vite dev server expects a TradeWarz API on the usual local port if you want live sign-in and
+streams; production uses the hosted service. Full-stack local runs (API + page) use the private
+server repository.
 
 ```
-npm run typecheck && npm test     # shared: schema, guardrails, evaluator, scoring; hub: sign-in, indexer, board
+npm run typecheck && npm test     # shared: schema, guardrails, evaluator, scoring; web tests
 ```
 
 ## Reporting a security problem

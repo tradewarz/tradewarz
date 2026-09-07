@@ -2,14 +2,14 @@
 node_modules/
 dist/
 
-# the hub's state: database, intel snapshots, logs - never committed
+# local data / sqlite / logs - never committed
 data/
 *.sqlite
 *.sqlite-*
 *.log
 *.jsonl
 
-# secrets - every key lives in hub/.env (copy hub/.env.example)
+# secrets / local env files
 .env
 .env.*
 !.env.example

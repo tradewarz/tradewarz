@@ -5,16 +5,13 @@
   "description": "TradeWarz: token-gated, non-custodial trading bots that run in the browser, with a weekly on-chain leaderboard.",
   "workspaces": [
     "shared",
-    "hub",
     "web"
   ],
   "scripts": {
-    "typecheck": "npm run typecheck -w shared -w hub -w web",
-    "test": "npm test -w shared -w hub -w web",
-    "build": "npm run build -w shared -w web -w hub",
-    "dev:hub": "npm run dev -w hub",
+    "typecheck": "npm run typecheck -w shared -w web",
+    "test": "npm test -w shared -w web",
+    "build": "npm run build -w shared -w web",
     "dev:web": "npm run dev -w web",
-    "start": "npm run start -w hub",
     "e2e": "node e2e/week1.mjs"
   },
   "engines": {
