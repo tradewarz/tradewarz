@@ -49,8 +49,10 @@ their own; bots resume when the stream is back. Expect a gap of about a minute.
 | `closed` | no token configured, `TW_PUBLIC` on | nobody; the Terminal, board and Guide stay public |
 | `token` | a token address is set | holders of `TW_GATE_REQUIRED` TRADEWARZ in a linked wallet |
 
-A public beta with the gate open is possible — set `TW_GATE_MODE=open` on purpose — and the hub warns loudly
-in its log when you do.
+Your own sign-in wallets (`TW_OWNER_WALLETS`) always pass the gate, closed or not, so you can trade on the public
+hub before the token exists. `TW_GATE_ALLOWLIST` (comma-separated wallet addresses) does the same for testers.
+A public beta with the gate open for everyone is also possible — set `TW_GATE_MODE=open` on purpose — and the
+hub warns loudly in its log when you do.
 
 ### Backups
 

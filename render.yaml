@@ -53,6 +53,8 @@ services:
         sync: false        # the TRADEWARZ mint once it exists; until then the gate stays closed on this hub
       - key: TW_TOKEN_ROBINHOOD
         sync: false        # the Robinhood Chain contract, if the token lives there too
+      - key: TW_GATE_ALLOWLIST
+        sync: false        # optional: tester wallets that trade before the token exists (owner wallets always can)
       - key: TW_PUMPPORTAL_KEY
         sync: false        # optional: a funded PumpPortal key streams pump.fun trades
       - key: TW_RPC_BASE
