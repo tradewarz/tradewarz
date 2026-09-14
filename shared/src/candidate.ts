@@ -148,6 +148,8 @@ export interface Candidate {
   bundle?: BundleFacts | null;
   /** When the hub last refreshed this snapshot. */
   updatedAt: number;
+  /** Live trade-print velocity (1m / 5m TPM, heat, just-lit). Absent on older hub payloads. */
+  velocity?: TxVelocity | null;
 }
 
 /** Every way the hub finds a token, for filters and the "found via" column. */
@@ -175,4 +177,32 @@ export function buySellRatio(c: Candidate, w: Window): number | null {
 export function txnCount(c: Candidate, w: Window): number | null {
   const t = c.txns[w];
   return t ? t.buys + t.sells : null;
+}
+
+/** How hot the live tape is, from counted trade prints (or 5m/1h txn windows when prints are not in yet). */
+export type Heat = 'quiet' | 'warming' | 'hot';
+export type VelocitySource = 'prints' | 'windows' | 'hub';
+
+/**
+ * Rolling trade velocity on a candidate. The hub may fill this from its websocket tape
+ * (Robinhood curve trades, Solana trades). The tab also computes it from successive
+ * candidate snapshots so Terminal can rank by TPM even when the hub payload is DexScreener-shaped.
+ */
+export interface TxVelocity {
+  trades1m: number;
+  trades5m: number;
+  trades15m: number;
+  /** Trades in the last minute — the IPO-style "how hard is it printing right now" number. */
+  tpm1m: number;
+  /** Trades per minute averaged over 5 minutes. */
+  tpm5m: number;
+  tpm15m: number;
+  /** tpm1m / tpm5m; ≫ 1 means this minute is running hotter than the 5-minute baseline. */
+  accel: number;
+  heat: Heat;
+  /** Quiet (or warming) tape that crossed into hot in the last ~90 seconds. */
+  justLit: boolean;
+  /** When that quiet→hot crossing happened; null if not currently in the lit window. */
+  litAt: number | null;
+  source: VelocitySource;
 }

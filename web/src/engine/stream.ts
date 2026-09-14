@@ -2,7 +2,7 @@
 // background tabs but keep delivering network messages, so everything the bot does is a
 // reaction to a message here. Also tracks whether the connection looks alive.
 
-import type { Candidate, Chain, FeedInfo, HubControl, StreamMessage } from '@tradewarz/shared';
+import { TapeBook, type Candidate, type Chain, type FeedInfo, type HubControl, type StreamMessage } from '@tradewarz/shared';
 import { api } from '../api.js';
 
 type Listener = (m: StreamMessage) => void;
@@ -12,6 +12,8 @@ class HubStream {
   private listeners = new Set<Listener>();
   clientId: string | null = null;
   candidates = new Map<string, Candidate>();
+  /** Rolling 1m/5m/15m trade prints derived from the candidate stream (and used when the hub did not send velocity). */
+  private tape = new TapeBook();
   feed: FeedInfo | null = null;
   ethUsd: number | null = null;
   solUsd: number | null = null;
@@ -41,9 +43,9 @@ class HubStream {
       try { m = JSON.parse(ev.data) as StreamMessage; } catch { return; }
       this.lastMessageAt = Date.now();
       this.connected = true;
-      if (m.kind === 'hello') { this.candidates.clear(); for (const c of m.candidates) this.candidates.set(HubStream.key(c.chain, c.address), c); this.feed = m.feed; this.ethUsd = m.ethUsd; this.solUsd = m.solUsd ?? this.solUsd; this.bnbUsd = m.bnbUsd ?? this.bnbUsd; if (m.control) this.control = m.control; }
-      else if (m.kind === 'candidate') this.candidates.set(HubStream.key(m.candidate.chain, m.candidate.address), m.candidate);
-      else if (m.kind === 'drop') this.candidates.delete(HubStream.key(m.chain, m.address));
+      if (m.kind === 'hello') { this.candidates.clear(); this.tape.clear(); for (const c of m.candidates) this.putCandidate(c); this.feed = m.feed; this.ethUsd = m.ethUsd; this.solUsd = m.solUsd ?? this.solUsd; this.bnbUsd = m.bnbUsd ?? this.bnbUsd; if (m.control) this.control = m.control; }
+      else if (m.kind === 'candidate') this.putCandidate(m.candidate);
+      else if (m.kind === 'drop') { const k = HubStream.key(m.chain, m.address); this.candidates.delete(k); this.tape.drop(k); }
       else if (m.kind === 'tick') { this.feed = m.feed; this.ethUsd = m.ethUsd; this.solUsd = m.solUsd ?? this.solUsd; this.bnbUsd = m.bnbUsd ?? this.bnbUsd; if (m.control) this.control = m.control; }
       this.emit(m);
     };
@@ -72,7 +74,20 @@ class HubStream {
   }
   candidate(chain: Chain, address: string): Candidate | undefined { return this.candidates.get(HubStream.key(chain, address)); }
   /** Feed a candidate in locally, as if the hub had sent it (end-to-end tests and demos; never used by the hub path). */
-  inject(candidate: Candidate): void { this.candidates.set(HubStream.key(candidate.chain, candidate.address), candidate); this.emit({ kind: 'candidate', candidate }); }
+  inject(candidate: Candidate): void {
+    const c = this.putCandidate(candidate);
+    this.emit({ kind: 'candidate', candidate: c });
+  }
+
+  /** Stamp live TPM onto the snapshot: hub-supplied velocity wins, otherwise the rolling tape. */
+  private putCandidate(candidate: Candidate): Candidate {
+    const key = HubStream.key(candidate.chain, candidate.address);
+    const prev = this.candidates.get(key);
+    const velocity = this.tape.ingest(key, prev, candidate);
+    const stamped = candidate.velocity === velocity ? candidate : { ...candidate, velocity };
+    this.candidates.set(key, stamped);
+    return stamped;
+  }
 }
 
 export const hubStream = new HubStream();

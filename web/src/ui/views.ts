@@ -3,14 +3,15 @@
 // launches by liquidity" in one click. Nothing here leaves the browser.
 
 import type { Candidate, Chain } from '@tradewarz/shared';
-import { isBundled } from '@tradewarz/shared';
+import { isBundled, tpmRank } from '@tradewarz/shared';
 
-export type SortKey = 'age' | 'liquidity' | 'mcap' | 'curve' | 'dev' | 'bundle' | 'chg5m' | 'vol5m' | 'bs5m' | 'score';
+export type SortKey = 'age' | 'liquidity' | 'mcap' | 'curve' | 'dev' | 'bundle' | 'tpm' | 'chg5m' | 'vol5m' | 'bs5m' | 'score';
 export type SortDir = 'asc' | 'desc';
+export type TerminalFilter = 'all' | 'pass' | 'acted' | 'watching' | 'bundled' | 'hot';
 
 export interface TerminalView {
   chain: 'all' | Chain;
-  filter: 'all' | 'pass' | 'acted' | 'watching' | 'bundled';
+  filter: TerminalFilter;
   source: string;
   q: string;
   sort: SortKey;
@@ -53,6 +54,7 @@ export function sortValue(c: Candidate, key: SortKey): number | null {
     case 'curve': return c.pons ? (c.pons.phase === 0 ? c.pons.progress : 1) : c.pump ? (c.pump.complete ? 1 : c.pump.progress) : null;
     case 'dev': return c.pons ? c.pons.devSharePct : c.pump ? c.pump.devSharePct : null;
     case 'bundle': return c.bundle ? c.bundle.supplyPct + (isBundled(c.bundle) ? 0 : 0) : null;
+    case 'tpm': return tpmRank(c);
     case 'chg5m': return c.priceChangePct.m5;
     case 'vol5m': return c.volumeUsd.m5;
     case 'bs5m': { const t = c.txns.m5; return t ? (t.sells === 0 ? t.buys : t.buys / t.sells) : null; }
@@ -63,6 +65,11 @@ export function sortValue(c: Candidate, key: SortKey): number | null {
 export function sortCandidates<T extends { c: Candidate }>(rows: T[], key: SortKey, dir: SortDir): T[] {
   const sign = dir === 'desc' ? -1 : 1;
   return [...rows].sort((a, b) => {
+    if (key === 'tpm') {
+      const aj = a.c.velocity?.justLit ? 1 : 0;
+      const bj = b.c.velocity?.justLit ? 1 : 0;
+      if (aj !== bj) return dir === 'desc' ? bj - aj : aj - bj;
+    }
     const x = sortValue(a.c, key), y = sortValue(b.c, key);
     if (x === null && y === null) return 0;
     if (x === null) return 1;
@@ -71,4 +78,7 @@ export function sortCandidates<T extends { c: Candidate }>(rows: T[], key: SortK
   });
 }
 
-export const SORT_LABEL: Record<SortKey, string> = { age: 'age', liquidity: 'liquidity', mcap: 'market cap', curve: 'curve', dev: 'dev share', bundle: 'bundle', chg5m: '5m change', vol5m: '5m volume', bs5m: 'buys/sells', score: 'score' };
+export const SORT_LABEL: Record<SortKey, string> = {
+  age: 'age', liquidity: 'liquidity', mcap: 'market cap', curve: 'curve', dev: 'dev share', bundle: 'bundle',
+  tpm: 'tx velocity', chg5m: '5m change', vol5m: '5m volume', bs5m: 'buys/sells', score: 'score',
+};
