@@ -36,20 +36,19 @@ const fmtTpm = (n: number): string => (n >= 10 ? String(Math.round(n)) : n >= 1 
 
 function TpmCell({ v, now }: { v: TxVelocity; now: number }) {
   if (v.tpm1m <= 0 && v.tpm5m <= 0) return <td class="n tpm muted">—</td>;
-  const primary = v.tpm1m > 0 ? v.tpm1m : v.tpm5m;
-  const approx = v.tpm1m <= 0;
+  const live = v.tpm1m > 0;
   const thin = isThinTape(v);
   const title = [
-    v.tpm1m > 0 ? `${v.trades1m} trades in the last minute (${fmtTpm(v.tpm1m)}/min)` : '1-minute tape still filling',
+    live ? `${v.trades1m} trades in the last minute (${fmtTpm(v.tpm1m)}/min)` : '1-minute tape still filling — showing the 5-minute average',
     `${v.trades5m} trades in 5 min (${fmtTpm(v.tpm5m)}/min)`,
     v.justLit && v.litAt ? `crossed into hot ${ageOf(v.litAt, now)} ago` : v.heat === 'hot' ? 'hot tape' : null,
     v.source === 'hub' ? 'from the hub tape' : v.source === 'prints' ? 'from live trade prints' : 'from 5m txn totals (no 1m prints yet)',
   ].filter(Boolean).join(' · ');
   return (
     <td class={`n tpm${v.justLit ? ' is-lit' : v.heat === 'hot' ? ' is-hot' : thin ? ' muted' : ''}`} title={title}>
-      <span class="tpm-n">{approx ? `~${fmtTpm(primary)}` : fmtTpm(primary)}</span>
-      {v.justLit ? <span class="vtag lit">LIT {v.litAt ? ageOf(v.litAt, now) : ''}</span> : v.heat === 'hot' ? <span class="vtag hot">HOT</span> : null}
-      {v.tpm1m > 0 ? <span class="muted small tpm-5">{fmtTpm(v.tpm5m)}/5m</span> : null}
+      <span class="tpm-n">{live ? fmtTpm(v.tpm1m) : `${fmtTpm(v.tpm5m)}/5m`}</span>
+      {v.justLit ? <span class="vtag lit">LIT</span> : v.heat === 'hot' ? <span class="vtag hot">HOT</span> : null}
+      {live ? <span class="muted small tpm-5">{v.justLit && v.litAt ? `${ageOf(v.litAt, now)} ago · ` : ''}{fmtTpm(v.tpm5m)}/5m</span> : v.justLit && v.litAt ? <span class="muted small tpm-5">{ageOf(v.litAt, now)} ago</span> : null}
     </td>
   );
 }
@@ -516,7 +515,7 @@ function ListingsPanel({ onPick }: { onPick: PickFn }) {
                   <td class="muted small">{r.dexName}</td>
                   <td class="n">{r.priceUsd === null ? '—' : `$${r.priceUsd.toPrecision(3)}`}</td>
                   <td class="n">{usd(r.liquidityUsd)}</td>
-                  <td class={`n${tv?.justLit ? ' is-lit' : ''}`}>{tv && (tv.tpm1m > 0 || tv.tpm5m > 0) ? <><span class="tpm-n">{tv.tpm1m > 0 ? fmtTpm(tv.tpm1m) : `~${fmtTpm(tv.tpm5m)}`}</span>{tv.justLit ? <span class="vtag lit">LIT</span> : tv.heat === 'hot' ? <span class="vtag hot">HOT</span> : null}</> : '—'}</td>
+                  <td class={`n${tv?.justLit ? ' is-lit' : ''}`}>{tv && (tv.tpm1m > 0 || tv.tpm5m > 0) ? <><span class="tpm-n">{tv.tpm1m > 0 ? fmtTpm(tv.tpm1m) : `${fmtTpm(tv.tpm5m)}/5m`}</span>{tv.justLit ? <span class="vtag lit">LIT</span> : tv.heat === 'hot' ? <span class="vtag hot">HOT</span> : null}</> : '—'}</td>
                   <td class="n">{usd(r.volH1Usd)}</td>
                   <td class={`n ${(r.chgM5Pct ?? 0) > 0 ? 'gain' : (r.chgM5Pct ?? 0) < 0 ? 'loss' : ''}`}>{pct(r.chgM5Pct)}</td>
                   <td class={`n ${(r.chgH1Pct ?? 0) > 0 ? 'gain' : (r.chgH1Pct ?? 0) < 0 ? 'loss' : ''}`}>{pct(r.chgH1Pct)}</td>
@@ -693,8 +692,9 @@ function TpmFact({ c, now }: { c: Candidate; now: number }) {
   const src = v.source === 'hub' ? 'hub tape' : v.source === 'prints' ? 'live prints this session' : '5-minute txn totals';
   return (
     <span>
-      {v.justLit ? <span class="vtag lit">LIT {v.litAt ? ageOf(v.litAt, now) : ''}</span> : v.heat === 'hot' ? <span class="vtag hot">HOT</span> : null}
+      {v.justLit ? <span class="vtag lit">LIT</span> : v.heat === 'hot' ? <span class="vtag hot">HOT</span> : null}
       {' '}{fmtTpm(v.tpm1m)}/min (1m, {v.trades1m} trades) · {fmtTpm(v.tpm5m)}/min over 5m ({v.trades5m} trades) · {fmtTpm(v.tpm15m)}/min over 15m
+      {v.justLit && v.litAt ? <span class="muted small"> · started {ageOf(v.litAt, now)} ago</span> : null}
       {v.accel >= 1.5 && v.tpm1m >= 8 ? <span class="muted small"> · this minute is {v.accel.toFixed(1)}× the 5m baseline</span> : null}
       <span class="muted small"> · {src}</span>
     </span>

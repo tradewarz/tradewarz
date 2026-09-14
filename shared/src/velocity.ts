@@ -35,6 +35,8 @@ interface Burst { at: number; n: number }
 interface Tape {
   bursts: Burst[];
   heat: Heat;
+  /** Last snapshot's 1-minute tape was already at the hot floor. */
+  oneMinHot: boolean;
   litAt: number | null;
 }
 
@@ -158,13 +160,13 @@ function snapshotTape(tape: Tape, c: Candidate, now: number): TxVelocity {
   const tpm15m = trades15m / 15;
   const accel = tpm1m > 0 ? tpm1m / Math.max(tpm5m, 1) : 1;
   const heat = classifyHeat(tpm1m, tpm5m);
-  const crossed = (tape.heat === 'quiet' || tape.heat === 'warming') && heat === 'hot';
-  const strong1m = tpm1m >= TPM.hot;
-  // Ignition = this minute is actually printing, not just a fat 5m window we inherited.
-  if (crossed && strong1m && (tape.heat === 'quiet' || accel >= 1.5)) tape.litAt = now;
-  if (heat !== 'hot') tape.litAt = null;
+  const oneMinHot = tpm1m >= TPM.hot;
+  // Ignition is a 1-minute crossing, not a fat 5m window we inherited on hello.
+  if (oneMinHot && !tape.oneMinHot) tape.litAt = now;
+  if (!oneMinHot) tape.litAt = null;
+  tape.oneMinHot = oneMinHot;
   tape.heat = heat;
-  const justLit = tape.litAt !== null && now - tape.litAt < TPM.litMs;
+  const justLit = tape.litAt !== null && now - tape.litAt < TPM.litMs && oneMinHot;
   const source: TxVelocity['source'] = trades15mTape > 0 ? 'prints' : 'windows';
   return {
     trades1m, trades5m, trades15m,
@@ -186,7 +188,7 @@ export class TapeBook {
     }
     const n = countPrints(prev, next);
     if (n > 0) this.record(key, n, now);
-    const tape = this.tapes.get(key) ?? { bursts: [], heat: 'quiet' as Heat, litAt: null };
+    const tape = this.tapes.get(key) ?? { bursts: [], heat: 'quiet' as Heat, oneMinHot: false, litAt: null };
     this.tapes.set(key, tape);
     return snapshotTape(tape, next, now);
   }
@@ -197,7 +199,7 @@ export class TapeBook {
 
   private record(key: string, n: number, now: number): void {
     let tape = this.tapes.get(key);
-    if (!tape) { tape = { bursts: [], heat: 'quiet', litAt: null }; this.tapes.set(key, tape); }
+    if (!tape) { tape = { bursts: [], heat: 'quiet', oneMinHot: false, litAt: null }; this.tapes.set(key, tape); }
     const last = tape.bursts[tape.bursts.length - 1];
     if (last && last.at === now) last.n += n;
     else tape.bursts.push({ at: now, n });

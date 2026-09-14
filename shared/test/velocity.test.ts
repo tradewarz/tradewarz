@@ -156,6 +156,24 @@ test('steady hot tape keeps HOT after the LIT window, without re-lighting', () =
   assert.ok(v.tpm1m >= TPM.hot, `tpm1m=${v.tpm1m}`);
 });
 
+test('a 1-minute crossing still lights even when the inherited 5m window is already hot', () => {
+  const book = new TapeBook();
+  const t0 = 12_000_000;
+  const fat = candidate({ txns: { ...emptyTxns(), m5: { buys: 400, sells: 70 } } });
+  const v0 = book.ingest('late', undefined, fat, t0);
+  assert.equal(v0.heat, 'hot');
+  assert.equal(v0.justLit, false);
+  let prev = fat;
+  let v = v0;
+  for (let i = 1; i <= 20; i++) {
+    const next = candidate({ txns: { ...emptyTxns(), m5: { buys: 400 + i, sells: 70 } } });
+    v = book.ingest('late', prev, next, t0 + i * 1_000);
+    prev = next;
+  }
+  assert.ok(v.tpm1m >= TPM.hot, `tpm1m=${v.tpm1m}`);
+  assert.equal(v.justLit, true);
+});
+
 test('hub-supplied velocity is used as-is', () => {
   const book = new TapeBook();
   const c = candidate({
