@@ -2,6 +2,7 @@ export * from './strategy.js';
 export * from './guardrails.js';
 export * from './presets.js';
 export * from './candidate.js';
+export * from './velocity.js';
 export * from './evaluate.js';
 export * from './leaderboard.js';
 export * from './describe.js';

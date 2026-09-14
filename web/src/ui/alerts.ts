@@ -2,7 +2,7 @@
 // to stare at the table. Everything is opt-in and remembered in this browser only. The tone is
 // synthesized (no audio file) and needs one click on the page first; the bell button is that click.
 
-export type AlertKind = 'pass' | 'trade' | 'bundle' | 'error';
+export type AlertKind = 'pass' | 'trade' | 'bundle' | 'error' | 'lit';
 
 export interface AlertSettings {
   sound: boolean;
@@ -15,10 +15,12 @@ export interface AlertSettings {
   onBundle: boolean;
   /** A bot hit an error. */
   onError: boolean;
+  /** A token's tape just crossed into hot TPM (quiet → printing this minute). */
+  onLit: boolean;
 }
 
 const KEY = 'tradewarz.alerts';
-const DEFAULTS: AlertSettings = { sound: false, notify: false, onPass: true, onTrade: true, onBundle: true, onError: true };
+const DEFAULTS: AlertSettings = { sound: false, notify: false, onPass: true, onTrade: true, onBundle: true, onError: true, onLit: true };
 let cached: AlertSettings | null = null;
 const listeners = new Set<() => void>();
 
@@ -58,7 +60,7 @@ export function unlockSound(): void {
   } catch { ctx = null; }
 }
 
-const TONES: Record<AlertKind, number[]> = { pass: [880, 1175], trade: [659, 880, 1319], bundle: [440, 330], error: [330, 262] };
+const TONES: Record<AlertKind, number[]> = { pass: [880, 1175], trade: [659, 880, 1319], bundle: [440, 330], error: [330, 262], lit: [988, 1319, 1568] };
 
 function beep(kind: AlertKind): void {
   if (!ctx || ctx.state !== 'running') return;
@@ -81,7 +83,7 @@ const recent = new Map<string, number>();
 /** One alert per (kind, key) per minute; the key is usually the token. */
 export function alert(kind: AlertKind, key: string, title: string, body: string): void {
   const s = alertSettings();
-  const enabled = kind === 'pass' ? s.onPass : kind === 'trade' ? s.onTrade : kind === 'bundle' ? s.onBundle : s.onError;
+  const enabled = kind === 'pass' ? s.onPass : kind === 'trade' ? s.onTrade : kind === 'bundle' ? s.onBundle : kind === 'lit' ? s.onLit : s.onError;
   if (!enabled || (!s.sound && !s.notify)) return;
   const k = `${kind}:${key}`;
   const last = recent.get(k) ?? 0;

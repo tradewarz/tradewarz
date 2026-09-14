@@ -6,7 +6,7 @@
 // chain, for looking. Click any row for every fact the hub has.
 
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { CHAINS, NATIVE_SYMBOL, SOURCE_LABEL, evaluate, isBundled, type BundleFacts, type Candidate, type CandidateSource, type Chain, type FeedInfo, type IntelView, type ListingsView, type Strategy, type StrategyRecord } from '@tradewarz/shared';
+import { CHAINS, NATIVE_SYMBOL, SOURCE_LABEL, evaluate, isBundled, isHotTape, isThinTape, velocityFromWindows, type BundleFacts, type Candidate, type CandidateSource, type Chain, type FeedInfo, type IntelView, type ListingsView, type Strategy, type StrategyRecord, type TxVelocity } from '@tradewarz/shared';
 import { api, describeError } from '../api.js';
 import { allBots, bots, type BotState, type Decision } from '../engine/bot.js';
 import { hubStream } from '../engine/stream.js';
@@ -18,10 +18,10 @@ import { toast } from './toast.js';
 import { TradeDialog, stubCandidate } from './TradeDialog.jsx';
 import { alert as fireAlert, alertSettings, enableNotifications, notificationsAllowed, notificationsSupported, onAlertSettings, setAlertSettings, unlockSound } from './alerts.js';
 import { openGuide } from './Guide.jsx';
-import { DEFAULT_VIEW, SORT_LABEL, deleteView, loadCurrentView, saveView, savedViews, sortCandidates, storeCurrentView, type SortDir, type SortKey, type TerminalView } from './views.js';
+import { DEFAULT_VIEW, SORT_LABEL, deleteView, loadCurrentView, saveView, savedViews, sortCandidates, storeCurrentView, type SortDir, type SortKey, type TerminalFilter, type TerminalView } from './views.js';
 import { isWatched, toggleWatch, watchlist, type Watched } from './watchlist.js';
 
-type Filter = 'all' | 'pass' | 'acted' | 'watching' | 'bundled';
+type Filter = TerminalFilter;
 type ChainPick = 'all' | Chain;
 type Verdict = { kind: 'held' | 'bought' | 'pass' | 'wait' | 'skip' | 'none'; text: string; reasons: string[]; unknown: string[] };
 
@@ -31,6 +31,27 @@ const PHASE = ['curve', 'swept', 'pool', 'rescued'];
 const ageOf = (ms: number | null, now = Date.now()): string => { if (ms === null) return '—'; const m = Math.max(0, (now - ms) / 60_000); return m < 1 ? `${Math.round(m * 60)}s` : m < 60 ? `${Math.round(m)}m` : m < 1440 ? `${(m / 60).toFixed(1)}h` : `${(m / 1440).toFixed(1)}d`; };
 const ageText = (c: Candidate): string => ageOf(c.createdAt);
 const keyOf = (c: Pick<Candidate, 'chain' | 'address'>): string => `${c.chain}:${c.chain === 'solana' ? c.address : c.address.toLowerCase()}`;
+const velOf = (c: Candidate): TxVelocity => c.velocity ?? velocityFromWindows(c);
+const fmtTpm = (n: number): string => (n >= 10 ? String(Math.round(n)) : n >= 1 ? String(Math.round(n)) : n > 0 ? n.toFixed(1) : '0');
+
+function TpmCell({ v, now }: { v: TxVelocity; now: number }) {
+  if (v.tpm1m <= 0 && v.tpm5m <= 0) return <td class="n tpm muted">—</td>;
+  const live = v.tpm1m > 0;
+  const thin = isThinTape(v);
+  const title = [
+    live ? `${v.trades1m} trades in the last minute (${fmtTpm(v.tpm1m)}/min)` : '1-minute tape still filling — showing the 5-minute average',
+    `${v.trades5m} trades in 5 min (${fmtTpm(v.tpm5m)}/min)`,
+    v.justLit && v.litAt ? `crossed into hot ${ageOf(v.litAt, now)} ago` : v.heat === 'hot' ? 'hot tape' : null,
+    v.source === 'hub' ? 'from the hub tape' : v.source === 'prints' ? 'from live trade prints' : 'from 5m txn totals (no 1m prints yet)',
+  ].filter(Boolean).join(' · ');
+  return (
+    <td class={`n tpm${v.justLit ? ' is-lit' : v.heat === 'hot' ? ' is-hot' : thin ? ' muted' : ''}`} title={title}>
+      <span class="tpm-n">{live ? fmtTpm(v.tpm1m) : `${fmtTpm(v.tpm5m)}/5m`}</span>
+      {v.justLit ? <span class="vtag lit">LIT</span> : v.heat === 'hot' ? <span class="vtag hot">HOT</span> : null}
+      {live ? <span class="muted small tpm-5">{v.justLit && v.litAt ? `${ageOf(v.litAt, now)} ago · ` : ''}{fmtTpm(v.tpm5m)}/5m</span> : v.justLit && v.litAt ? <span class="muted small tpm-5">{ageOf(v.litAt, now)} ago</span> : null}
+    </td>
+  );
+}
 
 function verdictFor(c: Candidate, s: Strategy | null, held: Set<string>, bought: Set<string>): Verdict {
   const k = keyOf(c);
@@ -143,7 +164,7 @@ export function Terminal({ strategies, onSaved, readOnly = false, onSignIn, noBu
   const watched = watchlist().filter((w) => chainPick === 'all' || w.chain === chainPick);
   const watchedKeys = new Set(watched.map((w) => keyOf({ chain: w.chain, address: w.address })));
   const shown = rows.filter(({ c, v }) =>
-    (filter === 'all' || (filter === 'pass' ? v.kind === 'pass' || v.kind === 'wait' : filter === 'watching' ? watchedKeys.has(keyOf(c)) : filter === 'bundled' ? isBundled(c.bundle) : v.kind === 'held' || v.kind === 'bought'))
+    (filter === 'all' || (filter === 'pass' ? v.kind === 'pass' || v.kind === 'wait' : filter === 'watching' ? watchedKeys.has(keyOf(c)) : filter === 'bundled' ? isBundled(c.bundle) : filter === 'hot' ? isHotTape(velOf(c)) : v.kind === 'held' || v.kind === 'bought'))
     && (source === 'all' || c.source === source)
     && (!needle || c.symbol.toLowerCase().includes(needle) || c.name.toLowerCase().includes(needle) || c.address.toLowerCase().includes(needle)),
   ).slice(0, 250);
@@ -158,6 +179,11 @@ export function Terminal({ strategies, onSaved, readOnly = false, onSignIn, noBu
     if (isBundled(c.bundle) && (held.has(k) || watchedKeys.has(k)) && !alerted.current.has(`bundle:${k}`)) {
       alerted.current.add(`bundle:${k}`);
       fireAlert('bundle', k, `Bundle on ${c.symbol || short(c.address, 4)}`, `${c.bundle!.wallets} wallets took ${c.bundle!.supplyPct.toFixed(1)}% of supply in the launch ${c.bundle!.method}`);
+    }
+    const tv = velOf(c);
+    if (tv.justLit && tv.litAt && !alerted.current.has(`lit:${k}:${tv.litAt}`)) {
+      alerted.current.add(`lit:${k}:${tv.litAt}`);
+      fireAlert('lit', k, `${c.symbol || short(c.address, 4)} just lit`, `${fmtTpm(tv.tpm1m)} tx/min this minute · ${fmtTpm(tv.tpm5m)}/min over 5m`);
     }
   }
   // Starred coins the hub has stopped streaming: still listed, still buyable by address.
@@ -182,6 +208,8 @@ export function Terminal({ strategies, onSaved, readOnly = false, onSignIn, noBu
   const passing = rows.filter((r) => r.v.kind === 'pass' || r.v.kind === 'wait').length;
   const traded = rows.filter((r) => r.v.kind === 'held' || r.v.kind === 'bought').length;
   const bundled = rows.filter((r) => isBundled(r.c.bundle)).length;
+  const hotTape = rows.filter((r) => isHotTape(velOf(r.c))).length;
+  const justLit = rows.filter((r) => velOf(r.c).justLit).length;
   const lastHour = all.filter((c) => c.createdAt !== null && now - c.createdAt < 3_600_000).length;
   const onCurve = all.filter((c) => (c.pons && c.pons.phase === 0) || (c.pump && !c.pump.complete)).length;
 
@@ -229,6 +257,7 @@ export function Terminal({ strategies, onSaved, readOnly = false, onSignIn, noBu
         <div><div class="k">watching</div><div class="v">{all.length}</div></div>
         <div><div class="k">last hour</div><div class="v">{lastHour}</div></div>
         <div><div class="k">on a curve</div><div class="v">{onCurve}</div></div>
+        <div><div class="k">hot tape</div><div class={`v ${hotTape ? 'gain' : ''}`}>{hotTape}{justLit ? <span class="muted small"> · {justLit} lit</span> : null}</div></div>
         <div><div class="k">pass now</div><div class={`v ${passing ? 'gain' : ''}`}>{passing}</div></div>
         {!readOnly && <div><div class="k">open</div><div class="v">{open.length}</div></div>}
         {today.map((c) => { const st = states[c]; return <div key={c}><div class="k">today · {NATIVE_SYMBOL[c]}{c === 'base' ? ' (Base)' : ''}</div><div class={`v ${st.realizedToday > 0n ? 'gain' : st.realizedToday < 0n ? 'loss' : ''}`}>{st.realizedToday >= 0n ? '+' : ''}{native(c, st.realizedToday, c === 'solana' ? 3 : 4)}</div></div>; })}
@@ -237,7 +266,7 @@ export function Terminal({ strategies, onSaved, readOnly = false, onSignIn, noBu
       <div class={`term-grid${tuning ? ' tuning' : ''}`}>
         <div class="term-main term-chrome">
           <div class="term-bar">
-            <div class="segmented sm">{(['all', 'pass', 'acted', 'watching', 'bundled'] as const).map((f) => <button key={f} class={filter === f ? 'on' : ''} onClick={() => setFilter(f)}>{f === 'all' ? `All (${rows.length})` : f === 'pass' ? `Passing (${passing})` : f === 'acted' ? `Traded (${traded})` : f === 'bundled' ? `Bundled (${bundled})` : `★ Watching (${watched.length})`}</button>)}</div>
+            <div class="segmented sm">{(['all', 'pass', 'acted', 'watching', 'bundled', 'hot'] as const).map((f) => <button key={f} class={filter === f ? 'on' : ''} onClick={() => setFilter(f)}>{f === 'all' ? `All (${rows.length})` : f === 'pass' ? `Passing (${passing})` : f === 'acted' ? `Traded (${traded})` : f === 'bundled' ? `Bundled (${bundled})` : f === 'hot' ? `Hot TPM (${hotTape})` : `★ Watching (${watched.length})`}</button>)}</div>
             {!readOnly && !noBuy && <button class="btn sm" onClick={() => setAddrForm(!addrForm)}>Buy by address</button>}
             <select class="input sm" value={source} onChange={(e) => setSource((e.target as HTMLSelectElement).value as 'all' | CandidateSource)} title="how the hub found it">
               <option value="all">every source</option>
@@ -282,18 +311,18 @@ export function Terminal({ strategies, onSaved, readOnly = false, onSignIn, noBu
                 <tr>
                   <th title="star to keep it in Watching">★</th><Th k="age" label="age" title="sort by age (newest or oldest first)" />{showChainCol && <th>chain</th>}<th>token</th><th class="lp">via</th><th>verdict</th>
                   <Th k="liquidity" label="liquidity" cls="n" /><Th k="mcap" label="mcap" cls="n lp" /><Th k="curve" label="curve" cls="n lp" /><Th k="dev" label="dev" cls="n lp" /><Th k="bundle" label="bundle" title="other wallets that bought in the launch block · click to sort" />
-                  <Th k="chg5m" label="5m Δ" cls="n" /><Th k="vol5m" label="vol 5m" cls="n lp" /><Th k="bs5m" label="b/s 5m" cls="n lp" /><Th k="score" label="score" cls="n lp" title="the 0–100 listing score for coins that came through CoinGecko / CoinMarketCap · click to sort" /><th class="lp">socials</th>
+                  <Th k="tpm" label="TPM" cls="n" title="trades per minute — last 1 minute, with the 5-minute average beside it. LIT = the tape just crossed into hot this minute. Click to sort." /><Th k="chg5m" label="5m Δ" cls="n lp" /><Th k="vol5m" label="vol 5m" cls="n lp" /><Th k="bs5m" label="b/s 5m" cls="n lp" /><Th k="score" label="score" cls="n lp" title="the 0–100 listing score for coins that came through CoinGecko / CoinMarketCap · click to sort" /><th class="lp">socials</th>
                 </tr>
               </thead>
               <tbody>
-                {shown.length === 0 && gone.length === 0 && <tr><td colSpan={16} class="muted small empty">{filter === 'watching' ? 'Nothing starred yet. Click ★ on a row to keep an eye on it; starred coins stay here even after the hub stops streaming them.' : all.length === 0 ? (live ? 'Waiting for the first launch…' : 'Nothing yet.') : 'Nothing matches this filter.'}</td></tr>}
+                {shown.length === 0 && gone.length === 0 && <tr><td colSpan={20} class="muted small empty">{filter === 'watching' ? 'Nothing starred yet. Click ★ on a row to keep an eye on it; starred coins stay here even after the hub stops streaming them.' : filter === 'hot' ? 'Nothing is printing hot right now — TPM lights up when a token starts putting up multiple trades every minute, not a handful of thin-tape ticks.' : all.length === 0 ? (live ? 'Waiting for the first launch…' : 'Nothing yet.') : 'Nothing matches this filter.'}</td></tr>}
                 {gone.map((w) => (
                   <tr key={`gone-${w.chain}-${w.address}`} class="none gone" onClick={() => setTrade(hubStream.candidate(w.chain, w.address) ?? stubCandidate(w.chain, w.address))}>
                     <td class="star on" onClick={(e) => { e.stopPropagation(); toggleWatch({ chain: w.chain, address: w.address, symbol: w.symbol, name: w.name }); bumpWatch((n) => n + 1); }}>★</td>
                     <td class="age">{ageOf(w.at, now)} ago</td>{showChainCol && <td><span class={`chip ${w.chain}`}>{CHAIN_SHORT[w.chain]}</span></td>}
                     <td class="tok"><b>{w.symbol}</b><span class="muted small"> {w.name}</span></td>
                     <td class="via muted small">starred</td>
-                    <td class="verdict none" colSpan={10}><span class="vtag">·</span> <span class="vtext">no longer in the hub’s feed — click to buy by address</span></td>
+                    <td class="verdict none" colSpan={11}><span class="vtag">·</span> <span class="vtext">no longer in the hub’s feed — click to buy by address</span></td>
                   </tr>
                 ))}
                 {shown.map(({ c, v }) => {
@@ -304,8 +333,9 @@ export function Terminal({ strategies, onSaved, readOnly = false, onSignIn, noBu
                   const dev = devShare(c);
                   const devMax = s ? (c.pons ? s.advanced.pons.maxDevSharePct : s.advanced.pump.maxDevSharePct) : null;
                   const li = c.listing;
+                  const tv = velOf(c);
                   return (
-                    <tr key={k} class={`${v.kind}${fresh ? ' fresh' : ''}${sel === k ? ' sel' : ''}`} onClick={() => pick(c)}>
+                    <tr key={k} class={`${v.kind}${fresh ? ' fresh' : ''}${tv.justLit ? ' justlit' : tv.heat === 'hot' ? ' hottape' : ''}${sel === k ? ' sel' : ''}`} onClick={() => pick(c)}>
                       <td class={`star${watchedKeys.has(k) ? ' on' : ''}`} title={watchedKeys.has(k) ? 'stop watching' : 'watch this coin'} onClick={(e) => { e.stopPropagation(); toggleWatch(c); bumpWatch((n) => n + 1); }}>{watchedKeys.has(k) ? '★' : '☆'}</td>
                       <td class="age">{ageText(c)}</td>
                       {showChainCol && <td><span class={`chip ${c.chain}`}>{CHAIN_SHORT[c.chain]}</span></td>}
@@ -317,6 +347,7 @@ export function Terminal({ strategies, onSaved, readOnly = false, onSignIn, noBu
                       <td class="n lp">{progressText(c)}</td>
                       <td class={`n lp${dev !== null && devMax !== null && dev > devMax ? ' warn' : ''}`}>{dev === null ? '—' : `${dev.toFixed(1)}%`}</td>
                       <td><BundleChip c={c} limit={s?.advanced.maxBundlePct ?? null} /></td>
+                      <TpmCell v={tv} now={now} />
                       <td class={`n ${(c.priceChangePct.m5 ?? 0) > 0 ? 'gain' : (c.priceChangePct.m5 ?? 0) < 0 ? 'loss' : ''}`}>{pct(c.priceChangePct.m5)}</td>
                       <td class="n lp">{usd(c.volumeUsd.m5)}</td>
                       <td class="n lp">{t5 ? `${t5.buys}/${t5.sells}` : '—'}</td>
@@ -374,7 +405,7 @@ export function Terminal({ strategies, onSaved, readOnly = false, onSignIn, noBu
   );
 }
 
-/** The bell: sound and desktop notifications for passes, trades, bundles and errors. Opt-in, remembered in this browser. */
+/** The bell: sound and desktop notifications for passes, trades, bundles, a tape that just lit, and errors. Opt-in, remembered in this browser. */
 function AlertsMenu() {
   const [open, setOpen] = useState(false);
   const [, bump] = useState(0);
@@ -387,7 +418,7 @@ function AlertsMenu() {
     setAlertSettings({ notify: ok });
     if (!ok) toast(notificationsSupported() ? 'The browser refused notifications for this site; allow them in the address-bar settings' : 'This browser cannot show notifications', 'bad');
   };
-  const Check = ({ k, label }: { k: 'onPass' | 'onTrade' | 'onBundle' | 'onError'; label: string }) => (
+  const Check = ({ k, label }: { k: 'onPass' | 'onTrade' | 'onBundle' | 'onError' | 'onLit'; label: string }) => (
     <label class="check small"><input type="checkbox" checked={s[k]} onChange={(e) => setAlertSettings({ [k]: (e.target as HTMLInputElement).checked })} /> {label}</label>
   );
   return (
@@ -401,6 +432,7 @@ function AlertsMenu() {
           <Check k="onPass" label="a token passes my rules while that chain's bot is off" />
           <Check k="onTrade" label="a bot buys or sells" />
           <Check k="onBundle" label="a bundle turns up on something I hold or watch" />
+          <Check k="onLit" label="a token's tape just lit (hot TPM this minute)" />
           <Check k="onError" label="a bot hits an error" />
         </div>
       )}
@@ -469,10 +501,13 @@ function ListingsPanel({ onPick }: { onPick: PickFn }) {
       {openPanel && (
         <div class="tablewrap short">
           <table class="launches">
-            <thead><tr><th>age</th><th>chain</th><th>token</th><th>dex</th><th class="n">price</th><th class="n">liquidity</th><th class="n">vol 1h</th><th class="n">5m Δ</th><th class="n">1h Δ</th><th class="n">b/s 1h</th><th></th></tr></thead>
+            <thead><tr><th>age</th><th>chain</th><th>token</th><th>dex</th><th class="n">price</th><th class="n">liquidity</th><th class="n">TPM</th><th class="n">vol 1h</th><th class="n">5m Δ</th><th class="n">1h Δ</th><th class="n">b/s 1h</th><th></th></tr></thead>
             <tbody>
-              {shown.length === 0 && <tr><td colSpan={11} class="muted small empty">{data ? 'No pools yet — the first refresh takes a moment.' : 'Loading…'}</td></tr>}
-              {shown.map((r) => (
+              {shown.length === 0 && <tr><td colSpan={12} class="muted small empty">{data ? 'No pools yet — the first refresh takes a moment.' : 'Loading…'}</td></tr>}
+              {shown.map((r) => {
+                const live = r.tradable ? hubStream.candidate(r.tradable, r.tokenAddress) : undefined;
+                const tv = live ? velOf(live) : null;
+                return (
                 <tr key={r.id} class={r.tradable ? 'tradable' : ''} onClick={() => { if (r.tradable) onPick(r.tradable, r.tokenAddress, { symbol: r.symbol, name: r.name }); else toast(` is on , a chain TradeWarz does not trade`); }}>
                   <td class="age">{ageOf(r.createdAt, now)}</td>
                   <td><span class={`chip ${r.network === 'solana' ? 'solana' : ''}`}>{r.networkName}</span></td>
@@ -480,13 +515,15 @@ function ListingsPanel({ onPick }: { onPick: PickFn }) {
                   <td class="muted small">{r.dexName}</td>
                   <td class="n">{r.priceUsd === null ? '—' : `$${r.priceUsd.toPrecision(3)}`}</td>
                   <td class="n">{usd(r.liquidityUsd)}</td>
+                  <td class={`n${tv?.justLit ? ' is-lit' : ''}`}>{tv && (tv.tpm1m > 0 || tv.tpm5m > 0) ? <><span class="tpm-n">{tv.tpm1m > 0 ? fmtTpm(tv.tpm1m) : `${fmtTpm(tv.tpm5m)}/5m`}</span>{tv.justLit ? <span class="vtag lit">LIT</span> : tv.heat === 'hot' ? <span class="vtag hot">HOT</span> : null}</> : '—'}</td>
                   <td class="n">{usd(r.volH1Usd)}</td>
                   <td class={`n ${(r.chgM5Pct ?? 0) > 0 ? 'gain' : (r.chgM5Pct ?? 0) < 0 ? 'loss' : ''}`}>{pct(r.chgM5Pct)}</td>
                   <td class={`n ${(r.chgH1Pct ?? 0) > 0 ? 'gain' : (r.chgH1Pct ?? 0) < 0 ? 'loss' : ''}`}>{pct(r.chgH1Pct)}</td>
                   <td class="n">{r.buysH1}/{r.sellsH1}</td>
                   <td>{r.tradable ? <span class="vtag judged">judged ↑</span> : <span class="muted small">view only</span>}</td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -603,6 +640,7 @@ function Drawer({ c, v, onClose, onBuy, watched, onToggleWatch, readOnly = false
         <dt>liquidity</dt><dd>{usd(c.liquidityUsd)}</dd>
         <dt>market cap</dt><dd>{usd(c.marketCapUsd)}{c.fdvUsd !== null && c.fdvUsd !== c.marketCapUsd ? <span class="muted small"> · FDV {usd(c.fdvUsd)}</span> : null}{q?.marketCapSol !== null && q?.marketCapSol !== undefined ? <span class="muted small"> · {q.marketCapSol.toFixed(1)} SOL</span> : null}</dd>
         <dt>price</dt><dd>{c.priceUsd !== null ? `$${c.priceUsd.toPrecision(3)}` : '—'}{c.priceNative !== null ? <span class="muted small"> · {c.priceNative.toPrecision(3)} {c.quoteSymbol}</span> : null}</dd>
+        <dt>tx velocity</dt><dd><TpmFact c={c} now={Date.now()} /></dd>
         <dt>volume</dt><dd>5m {usd(c.volumeUsd.m5)} · 1h {usd(c.volumeUsd.h1)} · 6h {usd(c.volumeUsd.h6)} · 24h {usd(c.volumeUsd.h24)}</dd>
         <dt>price change</dt><dd>5m {pct(c.priceChangePct.m5)} · 1h {pct(c.priceChangePct.h1)} · 6h {pct(c.priceChangePct.h6)} · 24h {pct(c.priceChangePct.h24)}</dd>
         <dt>buys / sells</dt><dd>{(['m5', 'h1', 'h6', 'h24'] as const).map((w) => `${w} ${c.txns[w] ? `${c.txns[w]!.buys}/${c.txns[w]!.sells}` : '—'}`).join(' · ')}</dd>
@@ -647,3 +685,18 @@ function BundleChip({ c, limit }: { c: Candidate; limit: number | null }) {
 const bundleText = (b: BundleFacts): string => b.wallets === 0
   ? `nobody else bought in the launch ${b.method}`
   : `${b.wallets} wallet${b.wallets === 1 ? '' : 's'} bought ${b.supplyPct.toFixed(1)}% of supply in the launch ${b.method} for ${b.nativeSpent} ${b.method === 'slot' ? 'SOL' : 'ETH'}; with the creator's buy, ${b.launchPct.toFixed(1)}% left the floor at once`;
+
+function TpmFact({ c, now }: { c: Candidate; now: number }) {
+  const v = velOf(c);
+  if (v.tpm1m <= 0 && v.tpm5m <= 0) return <span class="muted">no prints counted yet</span>;
+  const src = v.source === 'hub' ? 'hub tape' : v.source === 'prints' ? 'live prints this session' : '5-minute txn totals';
+  return (
+    <span>
+      {v.justLit ? <span class="vtag lit">LIT</span> : v.heat === 'hot' ? <span class="vtag hot">HOT</span> : null}
+      {' '}{fmtTpm(v.tpm1m)}/min (1m, {v.trades1m} trades) · {fmtTpm(v.tpm5m)}/min over 5m ({v.trades5m} trades) · {fmtTpm(v.tpm15m)}/min over 15m
+      {v.justLit && v.litAt ? <span class="muted small"> · started {ageOf(v.litAt, now)} ago</span> : null}
+      {v.accel >= 1.5 && v.tpm1m >= 8 ? <span class="muted small"> · this minute is {v.accel.toFixed(1)}× the 5m baseline</span> : null}
+      <span class="muted small"> · {src}</span>
+    </span>
+  );
+}
